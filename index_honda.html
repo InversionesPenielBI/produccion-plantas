@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seguimiento Producción — Planta Honda</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="compartido/estilos.css">
+<script src="https://accounts.google.com/gsi/client"></script>
+<style>
+/* ── Campos dentro de las tablas de captura ────────────────────────────
+   El entorno solo estiliza los inputs que viven en un .field; aquí van
+   sueltos en celdas. */
+.data-table input[type=number] {
+  width: 100%; max-width: 104px;
+  padding: 8px 10px;
+  border: none; border-radius: var(--radius-campo);
+  background: var(--bg); color: var(--text);
+  font-family: 'DM Mono', monospace; font-size: 12.5px;
+  text-align: right;
+  box-shadow: var(--nm-in-xs);
+  transition: box-shadow .2s ease;
+}
+.data-table input[type=number]:focus {
+  outline: none;
+  box-shadow: var(--nm-in-xs), 0 0 0 2px var(--accent-soft);
+}
+.data-table input.d-suave, .data-table input.d-peso,
+.data-table input.d-pres,  .data-table input.d-cont { max-width: 68px; }
+.data-table td.prog { font-weight: 600; }
+
+/* ── Bloques de columnas de la tabla de producción ─────────────────────
+   Fundido y devoluciones son secciones aparte: se separan con su propio
+   fondo y una ranura vertical a cada lado. */
+#tabla-produccion .g-fundido {
+  background: #f6f1dc;                 /* amarillo claro */
+  box-shadow: inset  1px 0 0 #e0d7b4, inset -1px 0 0 #e0d7b4;
+}
+#tabla-produccion .g-devol {
+  background: #e4edf6;                 /* azul claro */
+  box-shadow: inset -1px 0 0 #cbdaea;
+}
+#tabla-produccion thead .g-fundido, #tabla-produccion thead .g-devol {
+  background: transparent;
+}
+#tabla-produccion .sep-ini { border-left: 2px solid var(--nm-dark-soft); }
+#tabla-produccion .sep-fin { border-right: 2px solid var(--nm-dark-soft); }
+#tabla-produccion .efectivas,
+.detalle-box .efectivas { font-weight: 700; color: var(--ok); }
+#tabla-produccion .efectivas.text-muted,
+.detalle-box .efectivas.text-muted { font-weight: 400; color: var(--text3); }
+
+/* ── Tarjetas de indicadores: más compactas y con el número grande ───── */
+.metrics-grid { gap: 12px; }
+.metric-card { padding: 14px 16px; }
+.metric-label { font-size: 10px; letter-spacing: .07em; margin-bottom: 4px; }
+.metric-value { font-size: 27px; line-height: 1.1; }
+
+/* ── Pestañas estilo navegador ────────────────────────────────────────── */
+.tabs { display: flex; gap: 6px; padding: 0 6px; margin-bottom: -2px; position: relative; z-index: 1; }
+.tab {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 22px 13px; border: none; cursor: pointer;
+  border-radius: 14px 14px 0 0;
+  background: var(--bg); color: var(--text3);
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 600;
+  box-shadow: var(--nm-in-xs);
+  transition: box-shadow .18s ease, color .18s ease;
+}
+.tab:hover { color: var(--text2); }
+.tab.activa { color: var(--text); box-shadow: var(--nm-out-sm); padding-bottom: 15px; }
+.tab .punto { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
+.tab.activa .punto { background: var(--accent-mid); }
+.tab.llena .punto { background: var(--ok); }
+.tab-panel { display: none; }
+.tab-panel.activo { display: block; }
+
+/* ── Botones de la tarjeta del día: cada acción con su color ─────────── */
+.btn-mover  { color: var(--accent-mid); }
+.btn-mover:hover { color: var(--accent-mid); }
+.btn-cerrar { color: var(--ok); }
+.btn-cerrar:hover { color: var(--ok); }
+.btn-cerrar.reabrir, .btn-cerrar.reabrir:hover { color: var(--warn); }
+
+/* ── Día cerrado ─────────────────────────────────────────────────────── */
+.aviso-cerrado {
+  margin-top: 12px; padding: 11px 15px; border-radius: var(--radius-campo);
+  background: var(--bg); box-shadow: var(--nm-in-xs);
+  font-size: 12.5px; color: var(--text2);
+}
+#view-dia.cerrado .tab-panel input:not([readonly]),
+#view-dia.cerrado .tab-panel textarea { pointer-events: none; opacity: .65; }
+
+/* ── Historial ───────────────────────────────────────────────────────── */
+.fila-dia { cursor: pointer; }
+.fila-detalle > td { background: var(--bg); padding: 0 !important; }
+.detalle-box { padding: 14px 20px; }
+.detalle-box .data-table { margin: 0; }
+.chev { display: inline-block; width: 14px; transition: transform .18s ease; }
+.abierta .chev { transform: rotate(90deg); }
+
+/* ── Dashboard ───────────────────────────────────────────────────────── */
+.grid-graficas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-graficas .ancho-total { grid-column: 1 / -1; }
+.filtros {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+@media (max-width: 1250px) { .filtros { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.grafica-box { position: relative; height: 300px; }
+@media (max-width: 1100px) { .grid-graficas { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Cargando...</div>
+</div>
+
+<!-- Auth -->
+<div class="auth-screen" id="auth-screen" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo" aria-label="Inversiones Peniel" id="auth-logo-box">
+      <img src="logo.png" alt="Inversiones Peniel" onerror="mostrarLogoFallback()">
+    </div>
+    <div class="auth-title">Seguimiento Producción</div>
+    <div class="auth-sub">Inversiones Peniel — Planta Honda<br>Inicia sesión con tu cuenta de Google para continuar.</div>
+    <button class="btn btn-primary" id="btn-login" onclick="iniciarLogin()" style="width:100%;justify-content:center;padding:12px;font-size:14px;margin-top:8px">
+      Iniciar sesión con Google
+    </button>
+    <div id="auth-error" style="margin-top:12px;font-size:12px;color:var(--danger);display:none"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div class="app" id="app-root" style="display:none">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <span class="brand-mark"><img id="brand-img" alt="Inversiones Peniel"></span>
+      <div class="brand-text">
+        <div class="sidebar-logo-title">Seguimiento Producción</div>
+        <div class="sidebar-logo-sub">Planta Honda · 2026</div>
+      </div>
+      <button class="sidebar-toggle" id="btn-sidebar" onclick="toggleSidebar()"
+              aria-expanded="true" aria-controls="sidebar-nav" title="Contraer el menú">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 6l-6 6 6 6"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Producción</div>
+      <button class="nav-item active" onclick="showView('dia')" id="nav-dia">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M9 14.5l2 2 4-4"/></svg></span>
+        <span class="nav-label">Registro del día</span>
+      </button>
+      <button class="nav-item" onclick="showView('historial')" id="nav-historial">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/><circle cx="12" cy="15.5" r="2.8"/><path d="M12 14.2v1.5l1 .7"/></svg></span>
+        <span class="nav-label">Historial diario</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Reportes</div>
+      <button class="nav-item" onclick="showView('dashboard')" id="nav-dashboard">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></span>
+        <span class="nav-label">Dashboard</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Sesión</div>
+      <button class="nav-item" onclick="cerrarSesion()" id="nav-logout">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg></span>
+        <span class="nav-label">Cerrar sesión</span>
+      </button>
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="user-chip">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div>
+          <div class="user-name" id="user-name">...</div>
+          <div class="user-role" id="user-role"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title" id="topbar-title">Registro del día</div>
+        <div class="topbar-date" id="topbar-date"></div>
+      </div>
+      <div class="topbar-right">
+        <div id="sync-status" class="text-muted" style="font-size:11px"></div>
+        <button class="btn btn-sm" onclick="cargarDatos()">Actualizar</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         VIEW: REGISTRO DEL DÍA — un solo día, dos pestañas
+         ═══════════════════════════════════════════════════════════════ -->
+    <div class="view active" id="view-dia">
+
+      <div class="card" id="card-dia">
+        <div class="card-body">
+          <div class="form-grid form-grid-4">
+            <div class="field">
+              <label>Fecha *</label>
+              <input id="f-fecha" type="date" min="2025-01-01" max="2027-12-31" oninput="refrescarDia()">
+            </div>
+            <div class="field">
+              <label>Lote / F. Vto. <span class="lbl-auto">AUTO</span></label>
+              <input id="f-lote" class="campo-calc" placeholder="Calculado" readonly title="Fecha del registro + 29 días">
+            </div>
+            <div class="field">
+              <label>Planta</label>
+              <input id="f-planta" class="campo-calc" value="HONDA" readonly>
+            </div>
+            <div class="field">
+              <label>Estado <span class="lbl-auto">AUTO</span></label>
+              <input id="f-estado" class="campo-calc" placeholder="Sin registrar" readonly>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+            <button class="btn btn-sm btn-mover" id="btn-mover" onclick="alternarMoverFecha()">Cambiar la fecha del día</button>
+            <button class="btn btn-sm btn-cerrar" id="btn-cierre" onclick="alternarCierreDia()" style="display:none">Cerrar el día</button>
+            <button class="btn btn-sm btn-danger" id="btn-borrar" onclick="borrarDia()" style="display:none">Eliminar el día</button>
+          </div>
+
+          <div id="panel-mover" style="display:none;margin-top:14px">
+            <div class="form-grid form-grid-4">
+              <div class="field">
+                <label>Mover todo lo de este día a</label>
+                <input id="f-fecha-nueva" type="date" min="2025-01-01" max="2027-12-31">
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:8px">
+                <button class="btn btn-primary btn-sm" onclick="moverDia()">Mover</button>
+                <button class="btn btn-sm" onclick="alternarMoverFecha()">Cancelar</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="aviso-sin-programacion" style="display:none;margin-top:10px;font-size:12px;color:var(--danger)">
+            Este día no tiene programación guardada. Puedes registrar la producción igual,
+            pero el porcentaje de cumplimiento va a quedar sin base de comparación.
+          </div>
+          <div id="aviso-cerrado" class="aviso-cerrado" style="display:none">
+            Este día está <strong>cerrado</strong>. Para editarlo, primero usa el botón
+            <strong>Reabrir el día</strong>.
+          </div>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab activa" id="tab-programacion" role="tab" onclick="mostrarTab('programacion')">
+          <span class="punto"></span> Programación
+        </button>
+        <button class="tab" id="tab-produccion" role="tab" onclick="mostrarTab('produccion')">
+          <span class="punto"></span> Producción
+        </button>
+      </div>
+
+      <div class="tab-panel activo" id="panel-programacion">
+  <div class="card" id="card-prog-tabla">
+          <div class="card-header collapsible" onclick="toggleSection(this)">
+            <span class="card-title">Bloques programados</span>
+            <span class="card-header-right"><span class="card-chevron">▾</span></span>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="data-table" id="tabla-programacion">
+                <thead>
+                  <tr>
+                    <th>Destino</th>
+                    <th>Presentación</th>
+                    <th style="width:130px">Nº de bloques</th>
+                    <th style="width:120px">Libras</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-programacion"></tbody>
+              </table>
+            </div>
+            <div class="metrics-grid" style="margin-top:14px">
+              <div class="metric-card">
+                <div class="metric-label">Total bloques programados</div>
+                <div class="metric-value" id="mp-total-bloques">0</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Total libras programadas</div>
+                <div class="metric-value" id="mp-total-lb">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin:18px 0 30px" id="acciones-programacion">
+          <button class="btn" onclick="limpiarProgramacion()">Limpiar</button>
+          <button class="btn btn-primary" onclick="guardarProgramacion()">Guardar programación</button>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-produccion">
+  <div class="card" id="card-produccion">
+          <div class="card-header collapsible" onclick="toggleSection(this)">
+            <span class="card-title">Bloques realizados, fundido y devoluciones</span>
+            <span class="card-header-right"><span class="card-chevron">▾</span></span>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="data-table" id="tabla-produccion">
+                <thead>
+                  <tr>
+                    <th rowspan="2">Destino</th>
+                    <th rowspan="2">Present.</th>
+                    <th rowspan="2">Program.</th>
+                    <th colspan="2">Realizado</th>
+                    <th colspan="2" class="g-fundido sep-ini">Fundido</th>
+                    <th colspan="4" class="g-devol sep-ini sep-fin">Devoluciones</th>
+                    <th rowspan="2">Efectivas</th>
+                  </tr>
+                  <tr>
+                    <th>Cant.</th><th>Lb</th>
+                    <th class="g-fundido sep-ini">Cant.</th><th class="g-fundido">Lb</th>
+                    <th class="g-devol sep-ini">Suave</th><th class="g-devol">Bajo peso</th>
+                    <th class="g-devol">Present.</th><th class="g-devol sep-fin">Contam.</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-produccion"></tbody>
+              </table>
+            </div>
+            <div class="metrics-grid" style="margin-top:14px">
+              <div class="metric-card">
+                <div class="metric-label">Total libras producidas</div>
+                <div class="metric-value" id="m-total-lb">0</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Mejoramiento (reproceso)</div>
+                <div class="metric-value" id="m-mejoramiento">0</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Libras sin mejoramiento</div>
+                <div class="metric-value" id="m-sin-mejoramiento">0</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">% cumplimiento</div>
+                <div class="metric-value" id="m-cumplimiento">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+  <div class="card" id="card-proceso">
+          <div class="card-header collapsible" onclick="toggleSection(this)">
+            <span class="card-title">Proceso y leche</span>
+            <span class="card-header-right"><span class="card-chevron">▾</span></span>
+          </div>
+          <div class="card-body">
+            <div class="form-grid form-grid-4 section-gap">
+              <div class="field">
+                <label>Cantinas procesadas</label>
+                <input id="f-cantinas-procesadas" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Cuajadas para P. venta, venta y bocados</label>
+                <input id="f-cantinas-pv" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Cantinas guardadas</label>
+                <input id="f-cantinas-guardadas" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Cuajadas D.C. y mozzarella <span class="lbl-auto">AUTO</span></label>
+                <input id="f-cantinas-dc" class="campo-calc" placeholder="Calculado" readonly
+                       title="Procesadas − pera (sección Queso pera) − P. venta − guardadas">
+              </div>
+              <div class="field">
+                <label>Cantinas de leche descremadas</label>
+                <input id="f-cantinas-descremadas" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>% descremado <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pct-descremado" class="campo-calc" placeholder="Calculado" readonly>
+              </div>
+              <div class="field">
+                <label>Cantinas Jennos</label>
+                <input id="f-cant-jennos" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Litros de crema producida</label>
+                <input id="f-litros-crema" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Crema de leche pasteurizada</label>
+                <input id="f-crema-pasteurizada" type="number" min="0" step="0.01" placeholder="0">
+              </div>
+              <div class="field">
+                <label>Rendimiento de crema <span class="lbl-auto">AUTO</span></label>
+                <input id="f-rend-crema" class="campo-calc" placeholder="Calculado" readonly title="Litros de crema ÷ cantinas descremadas">
+              </div>
+              <div class="field">
+                <label>Litros batidos</label>
+                <input id="f-litros-batidos" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Libras de mantequilla producidas</label>
+                <input id="f-libras-mantequilla" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Rendimiento mantequilla <span class="lbl-auto">AUTO</span></label>
+                <input id="f-rend-mantequilla" class="campo-calc" placeholder="Calculado" readonly title="Libras producidas ÷ litros batidos">
+              </div>
+            </div>
+            <div class="form-grid form-grid-4" style="margin-top:16px">
+              <div class="field"><label>Cuajo (g)</label><input id="f-cuajo" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Sal (g)</label><input id="f-sal" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Sal vital (g)</label><input id="f-sal-vital" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Citrato (g)</label><input id="f-citrato" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Blen Max (g)</label><input id="f-blen-max" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Ácido cítrico (g)</label><input id="f-acido-citrico" type="number" min="0" step="1" placeholder="0"></div>
+            </div>
+          </div>
+        </div>
+
+  <div class="card" id="card-fundido">
+          <div class="card-header collapsible" onclick="toggleSection(this)">
+            <span class="card-title">Fundido</span>
+            <span class="card-header-right"><span class="card-chevron">▾</span></span>
+          </div>
+          <div class="card-body">
+            <div class="form-grid form-grid-4 section-gap">
+              <div class="field">
+                <label>Total libras a fundir <span class="lbl-auto">AUTO</span></label>
+                <input id="f-fundido-total" class="campo-calc" placeholder="Calculado" readonly title="Suma de las libras de la columna Fundido">
+              </div>
+              <div class="field">
+                <label>Libras fundidas</label>
+                <input id="f-libras-fundidas" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Libras de merma <span class="lbl-auto">AUTO</span></label>
+                <input id="f-merma" class="campo-calc" placeholder="Calculado" readonly>
+              </div>
+              <div class="field">
+                <label>% de merma <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pct-merma" class="campo-calc" placeholder="Calculado" readonly>
+              </div>
+              <div class="field"><label>Blen Max (g)</label><input id="f-fundido-blen-max" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Caseinato de sodio (g)</label><input id="f-fundido-caseinato" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field">
+                <label>P.P masa <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pp-masa-fundido" class="campo-calc" placeholder="Calculado" readonly title="Libras a fundir × 500">
+              </div>
+            </div>
+          </div>
+        </div>
+
+  <div class="card" id="card-reproceso">
+          <div class="card-header collapsible" onclick="toggleSection(this)">
+            <span class="card-title">Reproceso</span>
+            <span class="card-header-right"><span class="card-chevron">▾</span></span>
+          </div>
+          <div class="card-body">
+            <div class="form-grid form-grid-4 section-gap" id="grid-reproceso"></div>
+            <div class="form-grid form-grid-4" style="margin-top:10px">
+              <div class="field">
+                <label>Total libras reproceso <span class="lbl-auto">AUTO</span></label>
+                <input id="f-reproceso-total" class="campo-calc" placeholder="Calculado" readonly>
+              </div>
+              <div class="field">
+                <label>% de reproceso <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pct-reproceso" class="campo-calc" placeholder="Calculado" readonly title="Reproceso ÷ total libras producidas">
+              </div>
+            </div>
+          </div>
+        </div>
+
+  <div class="card" id="card-pera">
+          <div class="card-header collapsible" onclick="toggleSection(this)">
+            <span class="card-title">Queso pera</span>
+            <span class="card-header-right"><span class="card-chevron">▾</span></span>
+          </div>
+          <div class="card-body">
+            <div class="form-grid form-grid-4 section-gap">
+              <div class="field"><label>Sal (g)</label><input id="f-pera-sal" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Citrato (g)</label><input id="f-pera-citrato" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Blen Max (g)</label><input id="f-pera-blen-max" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Cuajo (g)</label><input id="f-pera-cuajo" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field">
+                <label>Cantinas de leche cuajadas</label>
+                <input id="f-pera-cantinas" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Litros <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pera-litros" class="campo-calc" placeholder="Calculado" readonly title="Cantinas cuajadas × 40">
+              </div>
+              <div class="field">
+                <label>Unidades no conformes</label>
+                <input id="f-pera-no-conformes" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Saldo dosificadora (lb)</label>
+                <input id="f-pera-saldo" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Mejoramiento (lb)</label>
+                <input id="f-pera-mejoramiento" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Total libras <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pera-total-lb" class="campo-calc" placeholder="Calculado" readonly>
+              </div>
+              <div class="field">
+                <label>Libras sin mejoramiento <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pera-sin-mejoramiento" class="campo-calc" placeholder="Calculado" readonly>
+              </div>
+              <div class="field">
+                <label>Promedio <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pera-promedio" class="campo-calc" placeholder="Calculado" readonly title="Libras sin mejoramiento ÷ cantinas cuajadas">
+              </div>
+              <div class="field">
+                <label>P.P masa <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pera-pp-masa" class="campo-calc" placeholder="Calculado" readonly title="Total libras × 500">
+              </div>
+            </div>
+            <div class="field" style="margin-top:12px">
+              <label>Observaciones del queso pera</label>
+              <textarea id="f-pera-observaciones" rows="2" placeholder="Opcional"></textarea>
+            </div>
+          </div>
+        </div>
+
+  <div class="card" id="card-observaciones">
+          <div class="card-header collapsible" onclick="toggleSection(this)">
+            <span class="card-title">Observaciones del día</span>
+            <span class="card-header-right"><span class="card-chevron">▾</span></span>
+          </div>
+          <div class="card-body">
+            <div class="field">
+              <textarea id="f-observaciones" rows="3" placeholder="Opcional"></textarea>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin:18px 0 30px" id="acciones-produccion">
+          <button class="btn" onclick="limpiarProduccion()">Limpiar</button>
+          <button class="btn btn-primary" onclick="guardarProduccion()">Guardar producción</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ VIEW: HISTORIAL ═══ -->
+    <div class="view" id="view-historial">
+      <div class="card">
+        <div class="card-body">
+          <div class="filtros">
+            <div class="field"><label>Año</label>
+              <select id="h-anio" onchange="alCambiarFiltro('h')"></select></div>
+            <div class="field"><label>Mes</label>
+              <select id="h-mes" onchange="alCambiarFiltro('h')"></select></div>
+            <div class="field"><label>Desde</label>
+              <input id="h-desde" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('h')"></div>
+            <div class="field"><label>Hasta</label>
+              <input id="h-hasta" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('h')"></div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn btn-sm" onclick="limpiarFiltros('h')">Ver todo</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="tabla-historial">
+              <thead>
+                <tr>
+                  <th style="width:26px"></th>
+                  <th>Fecha</th>
+                  <th>Estado</th>
+                  <th>Bloques program.</th>
+                  <th>Bloques producidos</th>
+                  <th>% cumpl.</th>
+                  <th>Pera producido</th>
+                  <th>% cumpl. pera</th>
+                  <th>Lb reproceso</th>
+                  <th>% reproceso</th>
+                  <th>Litros procesados</th>
+                  <th>Promedio</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-historial"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="historial-vacio" style="display:none">
+            <div class="empty-state-text">No hay días en el filtro seleccionado.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ VIEW: DASHBOARD ═══ -->
+    <div class="view" id="view-dashboard">
+      <div class="card">
+        <div class="card-body">
+          <div class="filtros">
+            <div class="field"><label>Año</label>
+              <select id="d-anio" onchange="alCambiarFiltro('d')"></select></div>
+            <div class="field"><label>Mes</label>
+              <select id="d-mes" onchange="alCambiarFiltro('d')"></select></div>
+            <div class="field"><label>Desde</label>
+              <input id="d-desde" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('d')"></div>
+            <div class="field"><label>Hasta</label>
+              <input id="d-hasta" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('d')"></div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn btn-sm" onclick="limpiarFiltros('d')">Ver todo</button>
+            </div>
+          </div>
+          <div class="metrics-grid" id="dash-metricas"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div class="grid-graficas">
+            <div class="ancho-total"><div class="card-title" style="margin-bottom:10px">Comportamiento diario de los promedios (libras por cantina)</div>
+              <div class="grafica-box"><canvas id="g-promedios"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">Producción diaria (kg)</div>
+              <div class="grafica-box"><canvas id="g-diaria"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">% de cumplimiento por día</div>
+              <div class="grafica-box"><canvas id="g-cumplimiento"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">Rendimiento diario del queso pera (libras por cantina)</div>
+              <div class="grafica-box"><canvas id="g-pera"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">Rendimiento diario de la mantequilla (libras por litro batido)</div>
+              <div class="grafica-box"><canvas id="g-mantequilla"></canvas></div></div>
+            <div class="ancho-total"><div class="card-title" style="margin-bottom:10px">Litros diarios procesados</div>
+              <div class="grafica-box"><canvas id="g-litros"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">Producción por producto (kg)</div>
+              <div class="grafica-box"><canvas id="g-producto"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">Reproceso por origen (kg)</div>
+              <div class="grafica-box"><canvas id="g-reproceso"></canvas></div></div>
+          </div>
+          <div class="empty-state" id="dash-vacio" style="display:none">
+            <div class="empty-state-text">No hay datos en el filtro seleccionado.</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header collapsible" onclick="toggleSection(this)">
+          <span class="card-title">% de cumplimiento por producto</span>
+          <span class="card-header-right"><span class="card-chevron">▾</span></span>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table class="data-table" id="tabla-cumplimiento">
+              <thead>
+                <tr>
+                  <th>Destino</th>
+                  <th>Presentación</th>
+                  <th>Programado</th>
+                  <th>Cortado</th>
+                  <th>No conforme</th>
+                  <th>Efectivas</th>
+                  <th>% cumplimiento</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-cumplimiento"></tbody>
+              <tfoot id="tfoot-cumplimiento"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// Configuración de esta página. Tiene que ir ANTES de compartido/entorno.js
+// ════════════════════════════════════════════════════════════════════════
+window.APP = {
+  // Hoja de cálculo "HONDA - SEGUIMIENTO DIARIO"
+  SHEET_ID: '1_0198rEX64zSJsg6S_cYzaWEkA-roFBQEmv_hLsFAus',
+  CLIENT_ID: '472930002147-of08gfnkeuu57gsbpgl48g5b20bvk3sp.apps.googleusercontent.com',
+  SCOPES: 'https://www.googleapis.com/auth/spreadsheets ' +
+          'https://www.googleapis.com/auth/userinfo.profile ' +
+          'https://www.googleapis.com/auth/userinfo.email',
+  SESSION_KEY: 'peniel_honda_v1',
+  TITULOS: {
+    dia: 'Registro del día',
+    historial: 'Historial diario',
+    dashboard: 'Dashboard de producción'
+  },
+  CAMPOS_FECHA_HOY: ['f-fecha'],
+  alIniciar() { cargarDatos(); },
+  alCambiarUsuario() { refrescarDia(); },
+  alCambiarVista(v) {
+    if (v === 'dia')       refrescarDia();
+    if (v === 'historial') renderHistorialHonda();
+    if (v === 'dashboard') renderDashboardHonda();
+  }
+};
+</script>
+<script src="compartido/entorno.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// PLANTA HONDA
+// ════════════════════════════════════════════════════════════════════════
+// El día se llena en DOS momentos y por eso son dos pantallas:
+//   1. Programación — antes: solo el Nº de bloques por producto.
+//   2. Producción   — después: realizado, fundido, devoluciones, proceso,
+//                     reproceso y queso pera.
+// Captura y historial van en LIBRAS, que es como se digita en planta.
+// El dashboard va en KILOS (1 libra = 500 g = 0,5 kg), incluidos los
+// rendimientos: el promedio pasa a ser kg por cantina, no libras.
+// ════════════════════════════════════════════════════════════════════════
+
+const HOJA_CATALOGO  = 'CATALOGO';
+const HOJA_DIA       = 'PRODUCCION_DIA';
+const HOJA_DETALLE   = 'PRODUCCION_DETALLE';
+const HOJA_REPROCESO = 'REPROCESO';
+const HOJA_PERA      = 'QUESO_PERA';
+
+const COLS_CATALOGO = ['id_producto','planta','destino','presentacion_gr','unidad',
+  'orden','vigente_desde','vigente_hasta'];
+const COLS_DIA = ['id_dia','planta','fecha','cantinas_procesadas','cantinas_pv_venta_bocados',
+  'cantinas_guardadas','litros_crema_producida','litros_crema_pasteurizada','cantinas_descremadas',
+  'litros_batidos','libras_mantequilla','cant_jennos','cuajo_gr','sal_gr','sal_vital_gr',
+  'citrato_gr','blen_max_gr','acido_citrico_gr','libras_fundidas','fundido_blen_max_gr',
+  'fundido_caseinato_gr','observaciones','estado','creado_por','fecha_creacion','ultima_edicion'];
+const COLS_DETALLE = ['id_detalle','id_dia','id_producto','cant_programada','cant_realizada',
+  'cant_fundida','dev_suave','dev_bajo_peso','dev_presentacion','dev_contaminacion','fecha_reg'];
+const COLS_REPROCESO = ['id_reproceso','id_dia','origen','libras','fecha_reg'];
+const COLS_PERA = ['id_pera','id_dia','sal_gr','citrato_gr','blen_max_gr','cuajo_gr',
+  'cantinas_cuajadas','unid_no_conformes','saldo_dosificadora','mejoramiento_lb','observaciones'];
+
+const ORIGENES_REPROCESO = ['RETAL PERA','CAMPESINO','CALIDAD 3','RETAL CONGELADO',
+  'COMPRADO','COCHA','RETAL'];
+
+const LB_POR_GRAMOS = 500;        // 500 g = 1 libra (convención de la planta)
+const KG_POR_LIBRA = 0.5;         // y por lo tanto media libra por kilo
+const LITROS_POR_CANTINA = 40;
+const DIAS_VENCIMIENTO = 29;
+
+const ESTADO = { PROGRAMADO: 'PROGRAMADO', ABIERTO: 'ABIERTO', CERRADO: 'CERRADO' };
+
+// Catálogo de respaldo mientras no exista el Sheets (ver ESTRUCTURA_SHEETS_HONDA.md)
+const CATALOGO_RESPALDO = [
+  ['DC-1815','HONDA','DOBLE CREMA SED',1815,'BLOQUE',1,'',''],
+  ['DC-1850','HONDA','DOBLE CREMA SED',1850,'BLOQUE',2,'',''],
+  ['DC-2000','HONDA','DOBLE CREMA SED',2000,'BLOQUE',3,'',''],
+  ['DC-2100','HONDA','DOBLE CREMA SED',2100,'BLOQUE',4,'',''],
+  ['DC-2250','HONDA','DOBLE CREMA SED',2250,'BLOQUE',5,'',''],
+  ['DC-2410','HONDA','DOBLE CREMA SED',2410,'BLOQUE',6,'',''],
+  ['DC-2500','HONDA','DOBLE CREMA SED',2500,'BLOQUE',7,'',''],
+  ['SBL-2500','HONDA','SEMIBLANDO DON MAIZ',2500,'BLOQUE',8,'',''],
+  ['PAR-2500','HONDA','PARTIDO DON MAIZ',2500,'BLOQUE',9,'',''],
+  ['DUR-2500','HONDA','DURO DON MAIZ',2500,'BLOQUE',10,'',''],
+  ['JEN-2500','HONDA','JENNOS PIZZA',2500,'BLOQUE',11,'',''],
+  ['MEJ-2500','HONDA','MEJORAMIENTO',2500,'BLOQUE',12,'',''],
+  ['VMZ-2500','HONDA','VENTA MOZARELLA',2500,'BLOQUE',13,'',''],
+  ['MOZ-1920','HONDA','MOZARELLA SED',1920,'BLOQUE',14,'',''],
+  ['MOZ-2200','HONDA','MOZARELLA SED',2200,'BLOQUE',15,'',''],
+  ['MOZ-2410','HONDA','MOZARELLA SED',2410,'BLOQUE',16,'',''],
+  ['PERA-300','HONDA','QUESO PERA',300,'UNIDAD',17,'',''],
+  ['PERA-1000','HONDA','QUESO PERA',1000,'UNIDAD',18,'',''],
+].map(r => rowToObj(r, COLS_CATALOGO));
+
+let catalogo = [];
+let dias = [];        // PRODUCCION_DIA
+let detalle = [];     // PRODUCCION_DETALLE
+let reprocesos = [];  // REPROCESO
+let peras = [];       // QUESO_PERA
+// `var` a propósito: así queda en window y el entorno común la encuentra para
+// redimensionar las gráficas cuando se contrae la barra lateral (`let` no lo hace).
+var dashCharts = {};
+
+const num = v => parseFloat(v) || 0;
+const val = id => num(document.getElementById(id)?.value);
+const txt = id => (document.getElementById(id)?.value || '').trim();
+const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+const lb1 = v => (Math.round(v * 100) / 100).toLocaleString('es-CO', { maximumFractionDigits: 2 });
+const ent = v => Math.round(v).toLocaleString('es-CO');
+const pct = (a, b) => b ? (a / b * 100).toFixed(1) + ' %' : '—';
+const idDia = fecha => 'HON-' + String(fecha).replaceAll('-', '');
+const aKg = lb => lb * KG_POR_LIBRA;
+
+// Un campo vacío se guarda VACÍO, no como cero: así se distingue "no se
+// digitó" de "se produjo cero". Para los cálculos vacío vale 0.
+const guardable = id => { const v = txt(id); return v === '' ? '' : num(v); };
+
+// ── Carga ────────────────────────────────────────────────────────────────
+async function cargarDatos() {
+  const estado = document.getElementById('sync-status');
+  try {
+    // La demo manda: aunque haya SHEET_ID, si la página trae datos de ejemplo
+    // se usan esos y no se toca la hoja real.
+    if (window.DATOS_DEMO || !SHEET_ID) {
+      const demo = window.DATOS_DEMO;
+      catalogo   = CATALOGO_RESPALDO;
+      dias       = (demo?.dia      || []).map(r => rowToObj(r, COLS_DIA));
+      detalle    = (demo?.detalle  || []).map(r => rowToObj(r, COLS_DETALLE));
+      reprocesos = (demo?.reproceso|| []).map(r => rowToObj(r, COLS_REPROCESO));
+      peras      = (demo?.pera     || []).map(r => rowToObj(r, COLS_PERA));
+      estado.textContent = demo
+        ? `Demo — ${dias.length} días de ejemplo, no se guarda nada`
+        : 'Sin hoja de cálculo — catálogo de respaldo';
+      if (!demo) toast('Falta el ID del Sheets de Honda: la página funciona pero no guarda.', 'error');
+    } else {
+      estado.textContent = 'Cargando...';
+      const fin = c => colLetra(c.length - 1);
+      const [cat, d, det, rep, per] = await Promise.all([
+        sheetsGet(`${HOJA_CATALOGO}!A:${fin(COLS_CATALOGO)}`),
+        sheetsGet(`${HOJA_DIA}!A:${fin(COLS_DIA)}`),
+        sheetsGet(`${HOJA_DETALLE}!A:${fin(COLS_DETALLE)}`),
+        sheetsGet(`${HOJA_REPROCESO}!A:${fin(COLS_REPROCESO)}`),
+        sheetsGet(`${HOJA_PERA}!A:${fin(COLS_PERA)}`)
+      ]);
+      catalogo = (cat || []).slice(1).map(r => rowToObj(r, COLS_CATALOGO))
+        .filter(p => p.id_producto && !p.vigente_hasta);
+      if (!catalogo.length) {
+        catalogo = CATALOGO_RESPALDO;
+        toast('La hoja CATALOGO está vacía: se usa el catálogo de respaldo.', 'error');
+      }
+      dias       = (d   || []).slice(1).map(r => rowToObj(r, COLS_DIA)).filter(x => x.id_dia);
+      detalle    = (det || []).slice(1).map(r => rowToObj(r, COLS_DETALLE)).filter(x => x.id_dia);
+      reprocesos = (rep || []).slice(1).map(r => rowToObj(r, COLS_REPROCESO)).filter(x => x.id_dia);
+      peras      = (per || []).slice(1).map(r => rowToObj(r, COLS_PERA)).filter(x => x.id_dia);
+      estado.textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO');
+    }
+    catalogo.sort((a, b) => num(a.orden) - num(b.orden));
+    dias.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+    renderTablaProgramacion();
+    renderTablaProduccion();
+    renderReproceso();
+    poblarFiltros('h'); poblarFiltros('d');
+    refrescarDia();
+    renderHistorialHonda();
+  } catch (e) {
+    console.error(e);
+    estado.textContent = 'Error al cargar';
+    toast('No se pudo leer la hoja de cálculo: ' + e.message, 'error');
+  }
+}
+
+const productoPorId = id => catalogo.find(p => p.id_producto === id);
+const gramajeDe = id => num(productoPorId(id)?.presentacion_gr);
+const nombreDe = id => {
+  const p = productoPorId(id);
+  return p ? `${p.destino} · ${p.presentacion_gr}` : id;
+};
+const librasDe = (id, cant) => num(cant) * gramajeDe(id) / LB_POR_GRAMOS;
+
+function celdaDestino(p, anterior) {
+  return p.destino !== anterior ? esc(p.destino) : '';
+}
+
+// ── 1. Programación ──────────────────────────────────────────────────────
+function renderTablaProgramacion() {
+  let anterior = null;
+  document.getElementById('tbody-programacion').innerHTML = catalogo.map(p => {
+    const celda = celdaDestino(p, anterior);
+    anterior = p.destino;
+    const unidad = String(p.unidad).toUpperCase() === 'BLOQUE' ? 'bloques' : 'unidades';
+    return `
+      <tr data-producto="${esc(p.id_producto)}" data-gramaje="${num(p.presentacion_gr)}">
+        <td>${celda}</td>
+        <td class="mono">${esc(p.presentacion_gr)}</td>
+        <td><input class="p-prog" type="number" min="0" step="1" placeholder="0"
+                   title="${unidad}" oninput="recalcularProgramacion()"></td>
+        <td class="mono p-lb text-muted">—</td>
+      </tr>`;
+  }).join('');
+}
+
+function recalcularProgramacion() {
+  let bloques = 0, libras = 0;
+  document.querySelectorAll('#tbody-programacion tr').forEach(tr => {
+    const cant = num(tr.querySelector('.p-prog').value);
+    const lb = cant * num(tr.dataset.gramaje) / LB_POR_GRAMOS;
+    tr.querySelector('.p-lb').textContent = cant ? lb1(lb) : '—';
+    bloques += cant; libras += lb;
+  });
+  document.getElementById('mp-total-bloques').textContent = ent(bloques);
+  document.getElementById('mp-total-lb').textContent = lb1(libras);
+}
+
+const detalleDeDia = id => detalle.filter(d => d.id_dia === id);
+
+function limpiarProgramacion() {
+  if (diaCerrado()) return avisarCerrado();
+  document.querySelectorAll('#tbody-programacion .p-prog').forEach(el => el.value = '');
+  recalcularProgramacion();
+}
+
+function guardarProgramacion() {
+  if (diaCerrado()) return avisarCerrado();
+  const malas = validarRangoFechas(document.getElementById('view-dia'));
+  if (malas.length) return avisarFechasInvalidas(malas);
+  const fecha = document.getElementById('f-fecha').value;
+  if (!fecha) return toast('Falta la fecha del día.', 'error');
+  const id = idDia(fecha);
+  const filas = [];
+  document.querySelectorAll('#tbody-programacion tr').forEach(tr => {
+    const v = tr.querySelector('.p-prog').value.trim();
+    if (v !== '' && num(v) > 0) filas.push({ id_producto: tr.dataset.producto, cant_programada: num(v) });
+  });
+  if (!filas.length) return toast('No hay ningún bloque programado.', 'error');
+
+  // En memoria queda igual que como se leerá de la hoja
+  detalle = detalle.filter(d => d.id_dia !== id);
+  filas.forEach((f, i) => detalle.push({
+    id_detalle: `${id}_D${i + 1}`, id_dia: id, id_producto: f.id_producto,
+    cant_programada: f.cant_programada, cant_realizada: '', cant_fundida: '',
+    dev_suave: '', dev_bajo_peso: '', dev_presentacion: '', dev_contaminacion: '', fecha_reg: ''
+  }));
+  if (!dias.find(d => d.id_dia === id)) {
+    dias.push({ id_dia: id, planta: 'HONDA', fecha, estado: ESTADO.PROGRAMADO });
+    dias.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  }
+  toast(SHEET_ID
+    ? 'El guardado en la hoja se conecta en el siguiente paso.'
+    : 'Programación guardada solo en memoria: falta el ID del Sheets de Honda.', 'error');
+
+  refrescarDia();
+  renderHistorialHonda();
+}
+
+// ── 2. Producción del día ────────────────────────────────────────────────
+function renderTablaProduccion() {
+  let anterior = null;
+  document.getElementById('tbody-produccion').innerHTML = catalogo.map(p => {
+    const bloque = String(p.unidad).toUpperCase() === 'BLOQUE';
+    const celda = celdaDestino(p, anterior);
+    anterior = p.destino;
+    const raya = c => `<td class="${c} text-muted" style="text-align:center">—</td>`;
+    return `
+      <tr data-producto="${esc(p.id_producto)}" data-gramaje="${num(p.presentacion_gr)}" data-bloque="${bloque ? 1 : 0}">
+        <td>${celda}</td>
+        <td class="mono">${esc(p.presentacion_gr)}</td>
+        <td class="mono prog text-muted">—</td>
+        <td><input class="c-real" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+        <td class="mono lb-real text-muted">—</td>
+        ${bloque
+          ? `<td class="g-fundido sep-ini"><input class="c-fund" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+             <td class="g-fundido mono lb-fund text-muted">—</td>
+             <td class="g-devol sep-ini"><input class="d-suave" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+             <td class="g-devol"><input class="d-peso" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+             <td class="g-devol"><input class="d-pres" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+             <td class="g-devol sep-fin"><input class="d-cont" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>`
+          : raya('g-fundido sep-ini') + raya('g-fundido') + raya('g-devol sep-ini') +
+            raya('g-devol') + raya('g-devol') + raya('g-devol sep-fin')}
+        <td class="mono efectivas">—</td>
+      </tr>`;
+  }).join('');
+}
+
+function renderReproceso() {
+  document.getElementById('grid-reproceso').innerHTML = ORIGENES_REPROCESO.map(o => `
+    <div class="field">
+      <label>${esc(o)}</label>
+      <input class="r-lb" data-origen="${esc(o)}" type="number" min="0" step="0.01"
+             placeholder="0" oninput="recalcularProduccion()">
+    </div>`).join('');
+}
+
+// Trae a las dos pestañas lo que ya está guardado de esa fecha
+function refrescarDia() {
+  const fecha = document.getElementById('f-fecha').value;
+  const id = fecha ? idDia(fecha) : null;
+  const filas = id ? detalleDeDia(id) : [];
+  const dia = dias.find(d => d.id_dia === id);
+  const rep = id ? reprocesos.filter(r => r.id_dia === id) : [];
+  const pera = id ? peras.find(p => p.id_dia === id) : null;
+
+  // Pestaña 1: programación
+  document.querySelectorAll('#tbody-programacion tr').forEach(tr => {
+    const f = filas.find(x => x.id_producto === tr.dataset.producto);
+    tr.querySelector('.p-prog').value = f ? (f.cant_programada || '') : '';
+  });
+  recalcularProgramacion();
+
+  // Pestaña 2: producción
+  document.querySelectorAll('#tbody-produccion tr').forEach(tr => {
+    const f = filas.find(x => x.id_producto === tr.dataset.producto);
+    const prog = f ? num(f.cant_programada) : 0;
+    tr.dataset.programado = prog;
+    const celda = tr.querySelector('.prog');
+    celda.textContent = prog || '—';
+    celda.classList.toggle('text-muted', !prog);
+    const poner = (cls, v) => { const el = tr.querySelector('.' + cls); if (el) el.value = (f && v) ? v : ''; };
+    poner('c-real', f?.cant_realizada); poner('c-fund', f?.cant_fundida);
+    poner('d-suave', f?.dev_suave);     poner('d-peso', f?.dev_bajo_peso);
+    poner('d-pres', f?.dev_presentacion); poner('d-cont', f?.dev_contaminacion);
+  });
+
+  document.querySelectorAll('.r-lb').forEach(el => {
+    const r = rep.find(x => x.origen === el.dataset.origen);
+    el.value = r ? (r.libras || '') : '';
+  });
+
+  const campos = {
+    'f-cantinas-procesadas': dia?.cantinas_procesadas, 'f-cantinas-pv': dia?.cantinas_pv_venta_bocados,
+    'f-cantinas-guardadas': dia?.cantinas_guardadas, 'f-cantinas-descremadas': dia?.cantinas_descremadas,
+    'f-cant-jennos': dia?.cant_jennos, 'f-litros-crema': dia?.litros_crema_producida,
+    'f-crema-pasteurizada': dia?.litros_crema_pasteurizada, 'f-litros-batidos': dia?.litros_batidos,
+    'f-libras-mantequilla': dia?.libras_mantequilla, 'f-cuajo': dia?.cuajo_gr, 'f-sal': dia?.sal_gr,
+    'f-sal-vital': dia?.sal_vital_gr, 'f-citrato': dia?.citrato_gr, 'f-blen-max': dia?.blen_max_gr,
+    'f-acido-citrico': dia?.acido_citrico_gr, 'f-libras-fundidas': dia?.libras_fundidas,
+    'f-fundido-blen-max': dia?.fundido_blen_max_gr, 'f-fundido-caseinato': dia?.fundido_caseinato_gr,
+    'f-observaciones': dia?.observaciones,
+    'f-pera-sal': pera?.sal_gr, 'f-pera-citrato': pera?.citrato_gr,
+    'f-pera-blen-max': pera?.blen_max_gr, 'f-pera-cuajo': pera?.cuajo_gr,
+    'f-pera-cantinas': pera?.cantinas_cuajadas, 'f-pera-no-conformes': pera?.unid_no_conformes,
+    'f-pera-saldo': pera?.saldo_dosificadora, 'f-pera-mejoramiento': pera?.mejoramiento_lb,
+    'f-pera-observaciones': pera?.observaciones
+  };
+  Object.entries(campos).forEach(([id, v]) => set(id, v ?? ''));
+
+  document.getElementById('aviso-sin-programacion').style.display =
+    (fecha && !filas.some(f => num(f.cant_programada))) ? 'block' : 'none';
+  set('f-estado', dia ? (dia.estado || ESTADO.ABIERTO) : '');
+  recalcularProduccion();
+  aplicarEstadoDia();
+  marcarPestanas();
+}
+
+function recalcularProduccion() {
+  let totalProg = 0, totalReal = 0, totalFund = 0;
+
+  document.querySelectorAll('#tbody-produccion tr').forEach(tr => {
+    const g = num(tr.dataset.gramaje);
+    const q = c => num(tr.querySelector('.' + c)?.value);
+    const real = q('c-real'), fund = q('c-fund');
+    const lbReal = real * g / LB_POR_GRAMOS, lbFund = fund * g / LB_POR_GRAMOS;
+    tr.querySelector('.lb-real').textContent = real ? lb1(lbReal) : '—';
+    const cf = tr.querySelector('.lb-fund');
+    if (cf) cf.textContent = fund ? lb1(lbFund) : '—';
+    const noConformes = q('d-suave') + q('d-peso') + q('d-pres') + q('d-cont');
+    const ef = tr.querySelector('.efectivas');
+    ef.textContent = (real || fund) ? ent(real + fund - noConformes) : '—';
+    ef.classList.toggle('text-muted', !(real || fund));
+    totalProg += num(tr.dataset.programado) * g / LB_POR_GRAMOS;
+    totalReal += lbReal; totalFund += lbFund;
+  });
+
+  let reproceso = 0;
+  document.querySelectorAll('.r-lb').forEach(el => reproceso += num(el.value));
+
+  const totalLb = totalReal + totalFund;
+  set('f-reproceso-total', lb1(reproceso));
+  set('f-pct-reproceso', pct(reproceso, totalLb));
+  document.getElementById('m-total-lb').textContent = lb1(totalLb);
+  document.getElementById('m-mejoramiento').textContent = lb1(reproceso);
+  document.getElementById('m-sin-mejoramiento').textContent = lb1(totalLb - reproceso);
+  // Cumplimiento del día: CON fundido y en LIBRAS, como en el Excel
+  document.getElementById('m-cumplimiento').textContent = pct(totalLb, totalProg);
+
+  set('f-fundido-total', lb1(totalFund));
+  const merma = totalFund - val('f-libras-fundidas');
+  set('f-merma', totalFund ? lb1(merma) : '');
+  set('f-pct-merma', totalFund ? pct(merma, totalFund) : '');
+  set('f-pp-masa-fundido', totalFund ? lb1(totalFund * LB_POR_GRAMOS) : '');
+
+  // Cantinas: las de pera vienen de la sección Queso pera, no se piden dos veces
+  const proc = val('f-cantinas-procesadas');
+  const cantinasPera = val('f-pera-cantinas');
+  const dc = proc - cantinasPera - val('f-cantinas-pv') - val('f-cantinas-guardadas');
+  set('f-cantinas-dc', proc ? lb1(dc) : '');
+  set('f-pct-descremado', pct(val('f-cantinas-descremadas'), proc));
+  const descremadas = val('f-cantinas-descremadas');
+  set('f-rend-crema', descremadas ? lb1(val('f-litros-crema') / descremadas) : '');
+  const batidos = val('f-litros-batidos');
+  set('f-rend-mantequilla', batidos ? lb1(val('f-libras-mantequilla') / batidos) : '');
+
+  set('f-pera-litros', cantinasPera ? lb1(cantinasPera * LITROS_POR_CANTINA) : '');
+  let peraLb = 0;
+  document.querySelectorAll('#tbody-produccion tr').forEach(tr => {
+    if (tr.dataset.bloque === '1') return;
+    peraLb += num(tr.querySelector('.c-real')?.value) * num(tr.dataset.gramaje) / LB_POR_GRAMOS;
+  });
+  peraLb += val('f-pera-no-conformes') * (gramajeDe('PERA-300') || 300) / LB_POR_GRAMOS;
+  peraLb += val('f-pera-saldo');
+  const peraMejora = val('f-pera-mejoramiento');
+  set('f-pera-total-lb', peraLb ? lb1(peraLb) : '');
+  set('f-pera-sin-mejoramiento', peraLb ? lb1(peraLb - peraMejora) : '');
+  set('f-pera-promedio', cantinasPera ? lb1((peraLb - peraMejora) / cantinasPera) : '');
+  set('f-pera-pp-masa', peraLb ? lb1(peraLb * LB_POR_GRAMOS) : '');
+
+  const f = document.getElementById('f-fecha').value;
+  if (f && !fechaFueraDeRango(f)) {
+    const d = new Date(f + 'T12:00:00');
+    d.setDate(d.getDate() + DIAS_VENCIMIENTO);
+    set('f-lote', fmtFecha(d.toISOString().split('T')[0]));
+  } else set('f-lote', '');
+}
+
+function limpiarProduccion() {
+  if (diaCerrado()) return avisarCerrado();
+  document.querySelectorAll('#panel-produccion input, #panel-produccion textarea').forEach(el => {
+    if (el.readOnly) return;
+    el.value = '';
+  });
+  recalcularProduccion();
+}
+
+function guardarProduccion() {
+  if (diaCerrado()) return avisarCerrado();
+  const malas = validarRangoFechas(document.getElementById('view-dia'));
+  if (malas.length) return avisarFechasInvalidas(malas);
+  const fecha = document.getElementById('f-fecha').value;
+  if (!fecha) return toast('Falta la fecha del día.', 'error');
+  if (!SHEET_ID) {
+    return toast('Todavía no hay hoja de cálculo conectada. Falta el ID del Sheets de Honda.', 'error');
+  }
+  toast('El guardado se conecta en el siguiente paso.', 'error');
+}
+
+// ── Pestañas, estado del día y correcciones ──────────────────────────────
+function mostrarTab(nombre) {
+  ['programacion', 'produccion'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('activa', t === nombre);
+    document.getElementById('panel-' + t).classList.toggle('activo', t === nombre);
+  });
+}
+
+// Un punto verde en la pestaña que ya tiene datos guardados de ese día
+function marcarPestanas() {
+  const id = idDiaActual();
+  const filas = id ? detalleDeDia(id) : [];
+  document.getElementById('tab-programacion').classList
+    .toggle('llena', filas.some(f => num(f.cant_programada)));
+  document.getElementById('tab-produccion').classList
+    .toggle('llena', filas.some(f => num(f.cant_realizada) || num(f.cant_fundida)));
+}
+
+const fechaActual  = () => document.getElementById('f-fecha').value;
+const idDiaActual  = () => fechaActual() ? idDia(fechaActual()) : null;
+const diaActual    = () => dias.find(d => d.id_dia === idDiaActual());
+const diaCerrado   = () => diaActual()?.estado === ESTADO.CERRADO;
+const avisarCerrado = () =>
+  toast('El día está cerrado. Reábrelo para poder editarlo.', 'error');
+
+// Bloquea la captura cuando el día está cerrado y ajusta los botones
+function aplicarEstadoDia() {
+  const dia = diaActual();
+  const cerrado = dia?.estado === ESTADO.CERRADO;
+  document.getElementById('view-dia').classList.toggle('cerrado', cerrado);
+  document.getElementById('aviso-cerrado').style.display = cerrado ? '' : 'none';
+  document.getElementById('acciones-programacion').style.display = cerrado ? 'none' : '';
+  document.getElementById('acciones-produccion').style.display = cerrado ? 'none' : '';
+
+  const cierre = document.getElementById('btn-cierre');
+  cierre.style.display = dia ? '' : 'none';
+  cierre.textContent = cerrado ? 'Reabrir el día' : 'Cerrar el día';
+  cierre.classList.toggle('reabrir', cerrado);
+
+  document.getElementById('btn-mover').style.display = (dia && !cerrado) ? '' : 'none';
+  document.getElementById('btn-borrar').style.display = (dia && isAdmin()) ? '' : 'none';
+  if (!dia) document.getElementById('panel-mover').style.display = 'none';
+}
+
+function alternarCierreDia() {
+  const dia = diaActual();
+  if (!dia) return toast('Este día todavía no tiene nada guardado.', 'error');
+  if (dia.estado === ESTADO.CERRADO) {
+    // Igual que en Mosquera: reabrir es solo de administradores
+    if (!isAdmin()) return toast('Solo los administradores pueden reabrir un día cerrado.', 'error');
+    dia.estado = ESTADO.ABIERTO;
+    toast('Día reabierto. Ya puedes editarlo.');
+  } else {
+    dia.estado = ESTADO.CERRADO;
+    toast('Día cerrado.');
+  }
+  set('f-estado', dia.estado);
+  aplicarEstadoDia();
+  renderHistorialHonda();
+  if (SHEET_ID) toast('El cambio de estado se escribe en la hoja en el siguiente paso.', 'error');
+}
+
+function alternarMoverFecha() {
+  const panel = document.getElementById('panel-mover');
+  const abierto = panel.style.display !== 'none';
+  panel.style.display = abierto ? 'none' : '';
+  if (!abierto) set('f-fecha-nueva', '');
+}
+
+// Corrige el caso de haber guardado un día con la fecha equivocada: se lleva
+// la cabecera, el detalle, el reproceso y el queso pera a la fecha nueva.
+function moverDia() {
+  const dia = diaActual();
+  if (!dia) return toast('Este día no tiene nada guardado que mover.', 'error');
+  const nueva = document.getElementById('f-fecha-nueva').value;
+  if (!nueva) return toast('Falta la fecha a la que se va a mover.', 'error');
+  if (fechaFueraDeRango(nueva)) return toast('El año debe estar entre 2025 y 2027.', 'error');
+  if (nueva === dia.fecha) return toast('Es la misma fecha.', 'error');
+
+  const nuevoId = idDia(nueva);
+  if (dias.some(d => d.id_dia === nuevoId)) {
+    return toast('El ' + fmtFecha(nueva) + ' ya tiene un registro. Revísalo antes de mover.', 'error');
+  }
+
+  const viejoId = dia.id_dia;
+  detalle.filter(d => d.id_dia === viejoId).forEach((d, i) => {
+    d.id_dia = nuevoId; d.id_detalle = `${nuevoId}_D${i + 1}`;
+  });
+  reprocesos.filter(r => r.id_dia === viejoId).forEach((r, i) => {
+    r.id_dia = nuevoId; r.id_reproceso = `${nuevoId}_R${i + 1}`;
+  });
+  peras.filter(x => x.id_dia === viejoId).forEach(x => {
+    x.id_dia = nuevoId; x.id_pera = `${nuevoId}_P`;
+  });
+  dia.id_dia = nuevoId; dia.fecha = nueva;
+  dias.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+
+  document.getElementById('panel-mover').style.display = 'none';
+  set('f-fecha', nueva);
+  refrescarDia();
+  renderHistorialHonda();
+  toast(SHEET_ID
+    ? 'Movido. El cambio en la hoja se escribe en el siguiente paso.'
+    : 'Movido al ' + fmtFecha(nueva) + '.');
+}
+
+function borrarDia() {
+  const dia = diaActual();
+  if (!dia) return;
+  if (!isAdmin()) return toast('Solo los administradores pueden eliminar un día.', 'error');
+  if (!confirm('¿Eliminar todo lo registrado del ' + fmtFecha(dia.fecha) + '? No se puede deshacer.')) return;
+  const id = dia.id_dia;
+  dias = dias.filter(d => d.id_dia !== id);
+  detalle = detalle.filter(d => d.id_dia !== id);
+  reprocesos = reprocesos.filter(r => r.id_dia !== id);
+  peras = peras.filter(x => x.id_dia !== id);
+  refrescarDia();
+  renderHistorialHonda();
+  toast(SHEET_ID
+    ? 'Eliminado. El borrado en la hoja se escribe en el siguiente paso.'
+    : 'Día eliminado.');
+}
+
+// Desde el historial: abre un día en el registro, en la pestaña que se pida
+function abrirDia(fecha, tab) {
+  set('f-fecha', fecha);
+  showView('dia');
+  mostrarTab(tab || 'produccion');
+  document.getElementById('card-dia').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Totales de un día (sirven al historial y al dashboard) ───────────────
+// Las fórmulas son las mismas del Excel:
+//   promedio sin crema = (libras de bloques − reproceso) / cantinas D.C. y Mz.
+//   promedio global    = (litros de crema + libras de bloques − reproceso) / cantinas D.C. y Mz.
+//   promedio SED       = (libras SED − reproceso) / cantinas SED
+//   promedio Jennos    = libras Jennos / cantinas Jennos
+//   promedio pera      = (libras de pera − mejoramiento) / cantinas cuajadas de pera
+// "Libras SED" excluye Jennos Pizza y Duro Don Maíz, igual que `J45` en el Excel.
+const ID_JENNOS = 'JEN-2500', ID_DURO = 'DUR-2500';
+const esPera = id => String(id).startsWith('PERA-');
+
+// Unidades efectivas de una fila: lo cortado menos lo no conforme.
+// En el queso pera las no conformes y el saldo de la dosificadora viven en
+// la hoja QUESO_PERA, así que lo realizado ya son las efectivas.
+function efectivasDe(f) {
+  const cortado = num(f.cant_realizada) + num(f.cant_fundida);
+  if (esPera(f.id_producto)) return num(f.cant_realizada);
+  const noConf = num(f.dev_suave) + num(f.dev_bajo_peso)
+               + num(f.dev_presentacion) + num(f.dev_contaminacion);
+  return cortado - noConf;
+}
+
+function totalesDia(dia) {
+  const filas = detalleDeDia(dia.id_dia);
+  let prog = 0, real = 0, fund = 0, lbJennos = 0, lbDuro = 0, lbPera = 0, progPera = 0;
+  let efecBloques = 0, efecPera = 0;
+  filas.forEach(f => {
+    const lb = librasDe(f.id_producto, num(f.cant_realizada) + num(f.cant_fundida));
+    const lbProg = librasDe(f.id_producto, f.cant_programada);
+    const lbEfec = librasDe(f.id_producto, efectivasDe(f));
+    prog += lbProg;
+    real += librasDe(f.id_producto, f.cant_realizada);
+    fund += librasDe(f.id_producto, f.cant_fundida);
+    if (esPera(f.id_producto)) { lbPera += lb; progPera += lbProg; efecPera += lbEfec; }
+    else {
+      efecBloques += lbEfec;
+      if (f.id_producto === ID_JENNOS) lbJennos += lb;
+      else if (f.id_producto === ID_DURO) lbDuro += lb;
+    }
+  });
+  const producido = real + fund;
+  const bloques = producido - lbPera;
+  const progBloques = prog - progPera;
+  const repro = reprocesos.filter(r => r.id_dia === dia.id_dia)
+                          .reduce((t, r) => t + num(r.libras), 0);
+  const pera = peras.find(x => x.id_dia === dia.id_dia);
+
+  const cantinasPera = num(pera?.cantinas_cuajadas);
+  const cantinasDcMz = num(dia.cantinas_procesadas) - cantinasPera
+                     - num(dia.cantinas_pv_venta_bocados) - num(dia.cantinas_guardadas);
+  const cantinasJennos = num(dia.cant_jennos);
+  const cantinasSed = cantinasDcMz - cantinasJennos;
+  const lbSed = bloques - lbJennos - lbDuro;
+  const lbPeraNeta = lbPera - num(pera?.mejoramiento_lb);
+  const litrosCrema = num(dia.litros_crema_producida);
+  const litrosBatidos = num(dia.litros_batidos);
+
+  // El divisor tiene que ser positivo de verdad. Hay días en que las cantinas
+  // de Jennos superan a las de D.C. y mozzarella (11, 22 y 23 de septiembre),
+  // y las cantinas SED quedan en negativo: ahí el promedio no significa nada y
+  // se muestra "—" en vez de hundir la gráfica hasta cero.
+  const div = (a, b) => b > 1e-6 ? a / b : null;
+  return {
+    prog, producido, repro, bloques, lbPera, lbSed, lbJennos, progBloques, progPera,
+    efecBloques, efecPera,
+    cantinasProcesadas: num(dia.cantinas_procesadas),
+    cantinasDcMz, cantinasPera, cantinasJennos, litrosCrema, litrosBatidos,
+    sinRepro: producido - repro,
+    // El queso pera va aparte de los bloques, como en el Excel, y el
+    // cumplimiento se mide con unidades EFECTIVAS: lo cortado menos lo no conforme
+    cumpl:      div(efecBloques, progBloques),
+    cumplPera:  div(efecPera, progPera),
+    pctRepro:   div(repro, bloques),
+    // promedios en LIBRAS por cantina; el dashboard los pasa a kilos
+    promSinCrema: div(bloques - repro, cantinasDcMz),
+    promGlobal:   div(litrosCrema + bloques - repro, cantinasDcMz),
+    promSed:      div(lbSed - repro, cantinasSed),
+    promJennos:   div(lbJennos, cantinasJennos),
+    promPera:     div(lbPeraNeta, cantinasPera),
+    rendMantequilla: div(num(dia.libras_mantequilla), litrosBatidos)
+  };
+}
+
+// ── Filtros (los mismos en historial y dashboard) ────────────────────────
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+               'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const sel = id => document.getElementById(id);
+const opciones = (el, lista, todos) => {
+  const antes = el.value;
+  el.innerHTML = `<option value="">${todos}</option>` +
+    lista.map(o => `<option value="${esc(o.v)}">${esc(o.t)}</option>`).join('');
+  if (lista.some(o => String(o.v) === antes)) el.value = antes;
+};
+
+function poblarFiltros(pref) {
+  const anios = [...new Set(dias.map(d => String(d.fecha).slice(0, 4)))].filter(Boolean).sort();
+  opciones(sel(pref + '-anio'), anios.map(a => ({ v: a, t: a })), 'Todos');
+  opciones(sel(pref + '-mes'), MESES.map((m, i) => ({ v: String(i + 1).padStart(2, '0'), t: m })), 'Todos');
+}
+
+function alCambiarFiltro(pref) {
+  if (pref === 'h') renderHistorialHonda(); else renderDashboardHonda();
+}
+
+function limpiarFiltros(pref) {
+  ['-anio','-mes','-desde','-hasta'].forEach(x => sel(pref + x).value = '');
+  alCambiarFiltro(pref);
+}
+
+function diasFiltrados(pref) {
+  const anio = sel(pref + '-anio').value, mes = sel(pref + '-mes').value;
+  const desde = sel(pref + '-desde').value, hasta = sel(pref + '-hasta').value;
+  return dias.filter(d => {
+    const f = String(d.fecha);
+    return (!anio  || f.slice(0, 4) === anio)
+        && (!mes   || f.slice(5, 7) === mes)
+        && (!desde || f >= desde)
+        && (!hasta || f <= hasta);
+  });
+}
+
+// ── Historial ────────────────────────────────────────────────────────────
+function renderHistorialHonda() {
+  const orden = diasFiltrados('h').slice().reverse();
+  const vacio = document.getElementById('historial-vacio');
+  const tabla = document.getElementById('tabla-historial');
+  vacio.style.display = orden.length ? 'none' : '';
+  tabla.style.display = orden.length ? '' : 'none';
+  document.getElementById('tbody-historial').innerHTML = orden.map(d => {
+    const t = totalesDia(d);
+    return `
+      <tr class="fila-dia" onclick="alternarDetalleDia('${esc(d.id_dia)}', this)">
+        <td><span class="chev">▸</span></td>
+        <td>${fmtFecha(d.fecha)}</td>
+        <td><span class="badge ${d.estado === 'CERRADO' ? 'badge-gray' : 'badge-blue'}">${esc(d.estado || '—')}</span></td>
+        <td class="mono">${t.progBloques ? lb1(t.progBloques) : '—'}</td>
+        <td class="mono">${t.bloques ? lb1(t.bloques) : '—'}</td>
+        <td class="mono">${t.cumpl != null ? (t.cumpl * 100).toFixed(1) + ' %' : '—'}</td>
+        <td class="mono">${t.lbPera ? lb1(t.lbPera) : '—'}</td>
+        <td class="mono">${t.cumplPera != null ? (t.cumplPera * 100).toFixed(1) + ' %' : '—'}</td>
+        <td class="mono">${t.repro ? lb1(t.repro) : '—'}</td>
+        <td class="mono">${t.pctRepro != null ? (t.pctRepro * 100).toFixed(1) + ' %' : '—'}</td>
+        <td class="mono">${t.cantinasProcesadas ? ent(t.cantinasProcesadas * LITROS_POR_CANTINA) : '—'}</td>
+        <td class="mono">${t.promSinCrema != null ? lb1(t.promSinCrema) : '—'}</td>
+        <td onclick="event.stopPropagation()">
+          <button class="btn btn-sm" onclick="abrirDia('${esc(d.fecha)}')">Ver</button>
+        </td>
+      </tr>
+      <tr class="fila-detalle" id="det-${esc(d.id_dia)}" style="display:none"><td colspan="13"></td></tr>`;
+  }).join('');
+}
+
+function alternarDetalleDia(id, tr) {
+  const fila = document.getElementById('det-' + id);
+  const abierta = fila.style.display !== 'none';
+  fila.style.display = abierta ? 'none' : '';
+  tr.classList.toggle('abierta', !abierta);
+  if (abierta) return;
+  const filas = detalleDeDia(id).filter(f => num(f.cant_realizada) || num(f.cant_programada));
+  const rep = reprocesos.filter(r => r.id_dia === id);
+  fila.querySelector('td').innerHTML = `
+    <div class="detalle-box">
+      <table class="data-table">
+        <thead><tr><th>Producto</th><th>Program.</th><th>Realizado</th><th>Fundido</th>
+          <th>Devoluciones</th><th>Efectivas</th><th>Libras</th></tr></thead>
+        <tbody>${filas.map(f => {
+          const dev = num(f.dev_suave) + num(f.dev_bajo_peso) + num(f.dev_presentacion) + num(f.dev_contaminacion);
+          const cant = num(f.cant_realizada) + num(f.cant_fundida);
+          return `<tr>
+            <td>${esc(nombreDe(f.id_producto))}</td>
+            <td class="mono">${f.cant_programada || '—'}</td>
+            <td class="mono">${f.cant_realizada || '—'}</td>
+            <td class="mono">${f.cant_fundida || '—'}</td>
+            <td class="mono">${dev || '—'}</td>
+            <td class="mono efectivas">${cant ? ent(cant - dev) : '—'}</td>
+            <td class="mono">${lb1(librasDe(f.id_producto, cant))}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+      ${rep.length ? `<div style="margin-top:12px;font-size:12px">
+        <strong>Reproceso:</strong> ${rep.map(r => `${esc(r.origen)} ${lb1(num(r.libras))} lb`).join(' · ')}
+      </div>` : ''}
+    </div>`;
+}
+
+// Cumplimiento por producto, en unidades: cortado − no conforme = efectivas.
+// Es la misma cuenta de la hoja `% CUMPLIMIENTO PLANTA` del Excel, pero
+// leyendo el producto de cada fila en vez de la posición en la cuadrícula.
+function renderCumplimientoProducto(lista) {
+  const acum = new Map();
+  lista.forEach(d => detalleDeDia(d.id_dia).forEach(f => {
+    const a = acum.get(f.id_producto)
+      || { prog: 0, cortado: 0, noConf: 0, efec: 0, lbProg: 0, lbEfec: 0 };
+    const cortado = num(f.cant_realizada) + num(f.cant_fundida);
+    const efec = efectivasDe(f);
+    a.prog    += num(f.cant_programada);
+    a.cortado += cortado;
+    a.noConf  += cortado - efec;
+    a.efec    += efec;
+    a.lbProg  += librasDe(f.id_producto, f.cant_programada);
+    a.lbEfec  += librasDe(f.id_producto, efec);
+    acum.set(f.id_producto, a);
+  }));
+
+  const filas = catalogo.filter(p => acum.has(p.id_producto));
+  let destinoAnterior = null;
+  document.getElementById('tbody-cumplimiento').innerHTML = filas.map(p => {
+    const a = acum.get(p.id_producto);
+    const celda = celdaDestino(p, destinoAnterior);
+    destinoAnterior = p.destino;
+    const c = a.prog ? a.efec / a.prog : null;
+    return `<tr>
+      <td>${celda}</td>
+      <td class="mono">${esc(p.presentacion_gr)}</td>
+      <td class="mono">${a.prog ? ent(a.prog) : '—'}</td>
+      <td class="mono">${a.cortado ? ent(a.cortado) : '—'}</td>
+      <td class="mono">${a.noConf ? ent(a.noConf) : '—'}</td>
+      <td class="mono efectivas">${a.efec ? ent(a.efec) : '—'}</td>
+      <td class="mono">${c != null ? (c * 100).toFixed(1) + ' %' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Los totales no pueden sumar unidades de distinto gramaje: van en libras.
+  // Se parten en bloques y queso pera para que cuadren con sus dos tarjetas.
+  const total = pred => [...acum.entries()].filter(([id]) => pred(id))
+    .reduce((s, [, a]) => ({ lbProg: s.lbProg + a.lbProg, lbEfec: s.lbEfec + a.lbEfec }),
+            { lbProg: 0, lbEfec: 0 });
+  const fila = (titulo, tt) => `
+    <tr>
+      <td colspan="2"><strong>${titulo}</strong></td>
+      <td class="mono">${lb1(tt.lbProg)}</td>
+      <td colspan="2"></td>
+      <td class="mono efectivas">${lb1(tt.lbEfec)}</td>
+      <td class="mono"><strong>${pct(tt.lbEfec, tt.lbProg)}</strong></td>
+    </tr>`;
+  document.getElementById('tfoot-cumplimiento').innerHTML =
+      fila('Total bloques (libras)', total(id => !esPera(id)))
+    + fila('Total queso pera (libras)', total(esPera));
+}
+
+// ── Dashboard (en KILOS y LITROS) ────────────────────────────────────────
+// Chart.js se carga la primera vez que se abre el dashboard: así la página
+// no espera por un CDN que quizá esté bloqueado en el PC de planta.
+let chartJsPromesa = null;
+function cargarChartJs() {
+  if (window.Chart) return Promise.resolve(true);
+  if (chartJsPromesa) return chartJsPromesa;
+  chartJsPromesa = new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+  return chartJsPromesa;
+}
+
+async function renderDashboardHonda() {
+  const lista = diasFiltrados('d');
+  document.getElementById('dash-vacio').style.display = lista.length ? 'none' : '';
+
+  const t = lista.map(totalesDia);
+  const suma = f => t.reduce((s, x) => s + (f(x) || 0), 0);
+  const media = f => {
+    const v = t.map(f).filter(x => x != null && isFinite(x));
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  const kgProd = aKg(suma(x => x.bloques));
+  const kgProg = aKg(suma(x => x.progBloques));
+  const kgEfec = aKg(suma(x => x.efecBloques));
+  const kgPera = aKg(suma(x => x.lbPera));
+  const kgPeraProg = aKg(suma(x => x.progPera));
+  const kgPeraEfec = aKg(suma(x => x.efecPera));
+  const kgRepro = aKg(suma(x => x.repro));
+  const litros = suma(x => x.cantinasProcesadas) * LITROS_POR_CANTINA;
+  // Los rendimientos se leen en libras; el kilo va debajo como referencia
+  const prom = f => {
+    const v = media(f);
+    return v == null ? ['—', ''] : [lb1(v) + ' lb', lb1(aKg(v)) + ' kg'];
+  };
+
+  document.getElementById('dash-metricas').innerHTML = [
+    ['Kilos producidos', ent(kgProd + kgPera), 'bloques y queso pera'],
+    ['% cumplimiento', pct(kgEfec + kgPeraEfec, kgProg + kgPeraProg), 'unidades efectivas'],
+    ['Kilos de reproceso', ent(kgRepro)],
+    ['% de reproceso', pct(kgRepro, kgProd)],
+    ['Litros procesados', ent(litros)],
+    ['Promedio global', ...prom(x => x.promGlobal)],
+    ['Promedio sin crema', ...prom(x => x.promSinCrema)],
+    ['Promedio SED', ...prom(x => x.promSed)],
+    ['Promedio Jennos', ...prom(x => x.promJennos)],
+    ['Promedio queso pera', ...prom(x => x.promPera)]
+  ].map(([l, v, sub]) => `
+    <div class="metric-card">
+      <div class="metric-label">${l}</div>
+      <div class="metric-value">${v}</div>
+      ${sub ? `<div class="metric-sub">${sub}</div>` : ''}
+    </div>`).join('');
+
+  renderCumplimientoProducto(lista);
+
+  if (!lista.length) { Object.values(dashCharts).forEach(c => c.destroy()); dashCharts = {}; return; }
+  if (!await cargarChartJs()) {
+    return toast('No se pudieron cargar las gráficas: el navegador no alcanza el CDN.', 'error');
+  }
+
+  const etiquetas = lista.map(d => fmtFecha(d.fecha).slice(0, 5));
+  const AZUL = '#3d6c94', VERDE = '#5b9279', AMARILLO = '#c9a227',
+        ROJO = '#c2544d', MORADO = '#8c6f9e', GRIS = '#9aa7b4';
+  // Una función, no un objeto: Chart.js escribe dentro de las opciones que
+  // recibe, y compartir el mismo objeto entre gráficas las contamina.
+  const ejes = () => ({ responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } } });
+  const pinta = (id, cfg) => {
+    dashCharts[id]?.destroy();
+    dashCharts[id] = new Chart(document.getElementById(id), cfg);
+  };
+  const linea = (label, datos, color) => ({
+    label, data: datos, borderColor: color, backgroundColor: color,
+    tension: .3, spanGaps: true, pointRadius: 2.5, borderWidth: 2
+  });
+  const serie = f => t.map(x => f(x) != null ? f(x) : null);
+
+  pinta('g-promedios', { type: 'line', data: { labels: etiquetas, datasets: [
+    linea('Promedio SED', serie(x => x.promSed), ROJO),
+    linea('Promedio Jennos', serie(x => x.promJennos), AMARILLO),
+    linea('Promedio sin crema', serie(x => x.promSinCrema), AZUL)
+  ]}, options: ejes() });
+
+  pinta('g-diaria', { type: 'bar', data: { labels: etiquetas, datasets: [
+    { label: 'Programado (bloques)', data: t.map(x => aKg(x.progBloques)), backgroundColor: GRIS, borderRadius: 4 },
+    { label: 'Producido (bloques)', data: t.map(x => aKg(x.bloques)), backgroundColor: AZUL, borderRadius: 4 },
+    { label: 'Queso pera', data: t.map(x => aKg(x.lbPera)), backgroundColor: MORADO, borderRadius: 4 }
+  ]}, options: ejes() });
+
+  pinta('g-cumplimiento', { type: 'line', data: { labels: etiquetas, datasets: [
+    linea('Bloques', t.map(x => x.cumpl != null ? x.cumpl * 100 : null), AZUL),
+    linea('Queso pera', t.map(x => x.cumplPera != null ? x.cumplPera * 100 : null), MORADO)
+  ]}, options: { ...ejes(), scales: { y: { ticks: { callback: v => v + ' %' } } } } });
+
+  pinta('g-pera', { type: 'line', data: { labels: etiquetas, datasets: [
+    linea('Rendimiento pera', serie(x => x.promPera), VERDE)
+  ]}, options: { ...ejes(), plugins: { legend: { display: false } } } });
+
+  pinta('g-mantequilla', { type: 'line', data: { labels: etiquetas, datasets: [
+    linea('Rendimiento mantequilla', serie(x => x.rendMantequilla), AMARILLO)
+  ]}, options: { ...ejes(), plugins: { legend: { display: false } } } });
+
+  const aLitros = f => t.map(x => (f(x) || 0) * LITROS_POR_CANTINA);
+  pinta('g-litros', { type: 'line', data: { labels: etiquetas, datasets: [
+    linea('D.C. y mozzarella', aLitros(x => x.cantinasDcMz), VERDE),
+    linea('Queso pera', aLitros(x => x.cantinasPera), MORADO),
+    linea('Jennos', aLitros(x => x.cantinasJennos), ROJO)
+  ]}, options: ejes() });
+
+  const porProducto = {};
+  lista.forEach(d => detalleDeDia(d.id_dia).forEach(f => {
+    const kg = aKg(librasDe(f.id_producto, num(f.cant_realizada) + num(f.cant_fundida)));
+    if (kg) porProducto[nombreDe(f.id_producto)] = (porProducto[nombreDe(f.id_producto)] || 0) + kg;
+  }));
+  const items = Object.entries(porProducto).sort((a, b) => b[1] - a[1]);
+  pinta('g-producto', { type: 'bar', data: {
+    labels: items.map(x => x[0]),
+    datasets: [{ label: 'Kilos', data: items.map(x => x[1]), backgroundColor: VERDE, borderRadius: 4 }]
+  }, options: { ...ejes(), indexAxis: 'y', plugins: { legend: { display: false } } } });
+
+  const porOrigen = {};
+  lista.forEach(d => reprocesos.filter(r => r.id_dia === d.id_dia).forEach(r => {
+    const kg = aKg(num(r.libras));
+    if (kg) porOrigen[r.origen] = (porOrigen[r.origen] || 0) + kg;
+  }));
+  const ori = Object.entries(porOrigen).sort((a, b) => b[1] - a[1]);
+  pinta('g-reproceso', { type: 'doughnut', data: {
+    labels: ori.map(o => o[0]),
+    datasets: [{ data: ori.map(o => Math.round(o[1])),
+      backgroundColor: [AZUL, VERDE, AMARILLO, MORADO, ROJO, GRIS, '#6ba3a0'] }]
+  }, options: { ...ejes(), plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } } } });
+}
+</script>
+</body>
+</html>
