@@ -754,6 +754,12 @@ const DIAS_VENCIMIENTO = 29;
 
 const ESTADO = { PROGRAMADO: 'PROGRAMADO', ABIERTO: 'ABIERTO', CERRADO: 'CERRADO' };
 
+// Único interruptor de "esto escribe de verdad". La demo trae datos de
+// ejemplo embebidos y nunca debe tocar la hoja, aunque el ID esté puesto.
+// Es una función a propósito: el bloque de la demo se define al final del
+// documento, así que en tiempo de carga de este script todavía no existe.
+const hayHoja = () => !!SHEET_ID && !window.DATOS_DEMO;
+
 // Catálogo de respaldo mientras no exista el Sheets (ver ESTRUCTURA_SHEETS_HONDA.md)
 const CATALOGO_RESPALDO = [
   ['DC-1815','HONDA','DOBLE CREMA SED',1815,'BLOQUE',1,'',''],
@@ -799,13 +805,33 @@ const aKg = lb => lb * KG_POR_LIBRA;
 // digitó" de "se produjo cero". Para los cálculos vacío vale 0.
 const guardable = id => { const v = txt(id); return v === '' ? '' : num(v); };
 
+// ── Columnas: se trabaja por NOMBRE, no por posición ─────────────────────
+// El orden real de cada hoja se lee de su fila 1 al arrancar. Así, mover una
+// columna de sitio en el Sheets no rompe ni la lectura ni el guardado. Lo que
+// sí importa es que estén todas y que se llamen igual (en minúsculas).
+const ordenHoja = {};
+const cols = (hoja, porDefecto) => ordenHoja[hoja] || porDefecto;
+
+function fijarOrden(hoja, cabecera, porDefecto) {
+  const nombres = (cabecera || []).map(h => String(h || '').trim().toLowerCase());
+  if (!nombres.length) { ordenHoja[hoja] = porDefecto; return; }
+  const faltan = porDefecto.filter(c => !nombres.includes(c));
+  if (faltan.length) {
+    ordenHoja[hoja] = porDefecto;
+    toast(`A la hoja ${hoja} le faltan columnas: ${faltan.join(', ')}. ` +
+          'Se está usando el orden por defecto, revísala antes de guardar.', 'error');
+    return;
+  }
+  ordenHoja[hoja] = nombres;
+}
+
 // ── Carga ────────────────────────────────────────────────────────────────
 async function cargarDatos() {
   const estado = document.getElementById('sync-status');
   try {
     // La demo manda: aunque haya SHEET_ID, si la página trae datos de ejemplo
     // se usan esos y no se toca la hoja real.
-    if (window.DATOS_DEMO || !SHEET_ID) {
+    if (!hayHoja()) {
       const demo = window.DATOS_DEMO;
       catalogo   = CATALOGO_RESPALDO;
       dias       = (demo?.dia      || []).map(r => rowToObj(r, COLS_DIA));
@@ -826,16 +852,27 @@ async function cargarDatos() {
         sheetsGet(`${HOJA_REPROCESO}!A:${fin(COLS_REPROCESO)}`),
         sheetsGet(`${HOJA_PERA}!A:${fin(COLS_PERA)}`)
       ]);
-      catalogo = (cat || []).slice(1).map(r => rowToObj(r, COLS_CATALOGO))
+      // sheetsGet devuelve la respuesta completa de la API: las filas van en .values
+      const filas = r => (r?.values || []).slice(1);
+      const cabecera = r => (r?.values || [])[0];
+      // La fila 1 manda: así se puede reordenar una columna en la hoja sin
+      // que la página lea o escriba en el sitio equivocado.
+      fijarOrden(HOJA_CATALOGO,  cabecera(cat), COLS_CATALOGO);
+      fijarOrden(HOJA_DIA,       cabecera(d),   COLS_DIA);
+      fijarOrden(HOJA_DETALLE,   cabecera(det), COLS_DETALLE);
+      fijarOrden(HOJA_REPROCESO, cabecera(rep), COLS_REPROCESO);
+      fijarOrden(HOJA_PERA,      cabecera(per), COLS_PERA);
+
+      catalogo = filas(cat).map(r => rowToObj(r, cols(HOJA_CATALOGO, COLS_CATALOGO)))
         .filter(p => p.id_producto && !p.vigente_hasta);
       if (!catalogo.length) {
         catalogo = CATALOGO_RESPALDO;
         toast('La hoja CATALOGO está vacía: se usa el catálogo de respaldo.', 'error');
       }
-      dias       = (d   || []).slice(1).map(r => rowToObj(r, COLS_DIA)).filter(x => x.id_dia);
-      detalle    = (det || []).slice(1).map(r => rowToObj(r, COLS_DETALLE)).filter(x => x.id_dia);
-      reprocesos = (rep || []).slice(1).map(r => rowToObj(r, COLS_REPROCESO)).filter(x => x.id_dia);
-      peras      = (per || []).slice(1).map(r => rowToObj(r, COLS_PERA)).filter(x => x.id_dia);
+      dias       = filas(d).map(r => rowToObj(r, cols(HOJA_DIA, COLS_DIA))).filter(x => x.id_dia);
+      detalle    = filas(det).map(r => rowToObj(r, cols(HOJA_DETALLE, COLS_DETALLE))).filter(x => x.id_dia);
+      reprocesos = filas(rep).map(r => rowToObj(r, cols(HOJA_REPROCESO, COLS_REPROCESO))).filter(x => x.id_dia);
+      peras      = filas(per).map(r => rowToObj(r, cols(HOJA_PERA, COLS_PERA))).filter(x => x.id_dia);
       estado.textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO');
     }
     catalogo.sort((a, b) => num(a.orden) - num(b.orden));
@@ -851,6 +888,82 @@ async function cargarDatos() {
     estado.textContent = 'Error al cargar';
     toast('No se pudo leer la hoja de cálculo: ' + e.message, 'error');
   }
+}
+
+// ── Escritura en la hoja ─────────────────────────────────────────────────
+// Todo lo que guarda pasa por aquí. Bloquea los botones del día mientras
+// escribe, para que dos clics seguidos no dejen filas duplicadas.
+let guardando = false;
+
+async function conBloqueo(etiqueta, fn) {
+  if (guardando) { toast('Espera: hay un guardado en curso.', 'error'); return false; }
+  guardando = true;
+  const botones = [...document.querySelectorAll('#view-dia button')];
+  botones.forEach(b => b.disabled = true);
+  const estado = document.getElementById('sync-status');
+  const antes = estado.textContent;
+  estado.textContent = etiqueta + '...';
+  try {
+    await fn();
+    estado.textContent = 'Guardado ' + new Date().toLocaleTimeString('es-CO');
+    return true;
+  } catch (e) {
+    console.error(e);
+    estado.textContent = antes;
+    toast('No se pudo guardar en la hoja: ' + e.message, 'error');
+    return false;
+  } finally {
+    guardando = false;
+    botones.forEach(b => b.disabled = false);
+  }
+}
+
+const finCol = cols => colLetra(cols.length - 1);
+const ahora = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
+const filaVacia = cols => rowToObj([], cols);
+
+// Cabecera del día: si la fila ya existe se sobrescribe, si no se agrega.
+async function guardarCabecera(dia) {
+  const cd = cols(HOJA_DIA, COLS_DIA);
+  const fila = [objToRow(dia, cd)];
+  const row = await sheetsFindRow(HOJA_DIA, 0, dia.id_dia);
+  if (row > 0) await sheetsUpdate(`${HOJA_DIA}!A${row}:${finCol(cd)}${row}`, fila);
+  else         await sheetsAppend(`${HOJA_DIA}!A:${finCol(cd)}`, fila);
+}
+
+async function borrarCabecera(id) {
+  const row = await sheetsFindRow(HOJA_DIA, 0, id);
+  if (row < 1) return;
+  const sid = await obtenerSheetId(HOJA_DIA);
+  await sheetsBatchUpdate([{ deleteDimension: {
+    range: { sheetId: sid, dimension: 'ROWS', startIndex: row - 1, endIndex: row }
+  } }]);
+}
+
+// Une lo ya guardado del día con lo que hay en pantalla: así guardar la
+// programación no borra la producción, ni al revés.
+function filasDetalle(id, cambios) {
+  const previas = new Map(detalleDeDia(id).map(d => [d.id_producto, { ...d }]));
+  cambios.forEach(c => {
+    const f = previas.get(c.id_producto) ||
+      { ...filaVacia(COLS_DETALLE), id_dia: id, id_producto: c.id_producto };
+    Object.assign(f, c);
+    previas.set(c.id_producto, f);
+  });
+  const datos = COLS_DETALLE.slice(3, 10);   // de cant_programada a dev_contaminacion
+  const orden = id2 => {
+    const i = catalogo.findIndex(p => p.id_producto === id2);
+    return i < 0 ? 999 : i;
+  };
+  const vivas = [...previas.values()]
+    .filter(f => datos.some(k => String(f[k] ?? '') !== ''))
+    .sort((a, b) => orden(a.id_producto) - orden(b.id_producto));
+  vivas.forEach((f, i) => {
+    f.id_dia = id;
+    f.id_detalle = `${id}_D${i + 1}`;
+    f.fecha_reg = f.fecha_reg || ahora();
+  });
+  return vivas;
 }
 
 const productoPorId = id => catalogo.find(p => p.id_producto === id);
@@ -903,34 +1016,50 @@ function limpiarProgramacion() {
   recalcularProgramacion();
 }
 
-function guardarProgramacion() {
+async function guardarProgramacion() {
   if (diaCerrado()) return avisarCerrado();
   const malas = validarRangoFechas(document.getElementById('view-dia'));
   if (malas.length) return avisarFechasInvalidas(malas);
   const fecha = document.getElementById('f-fecha').value;
   if (!fecha) return toast('Falta la fecha del día.', 'error');
   const id = idDia(fecha);
-  const filas = [];
+
+  const cambios = [];
   document.querySelectorAll('#tbody-programacion tr').forEach(tr => {
     const v = tr.querySelector('.p-prog').value.trim();
-    if (v !== '' && num(v) > 0) filas.push({ id_producto: tr.dataset.producto, cant_programada: num(v) });
+    cambios.push({ id_producto: tr.dataset.producto, cant_programada: v === '' ? '' : num(v) });
   });
-  if (!filas.length) return toast('No hay ningún bloque programado.', 'error');
+  if (!cambios.some(c => num(c.cant_programada) > 0)) {
+    return toast('No hay ningún bloque programado.', 'error');
+  }
 
-  // En memoria queda igual que como se leerá de la hoja
-  detalle = detalle.filter(d => d.id_dia !== id);
-  filas.forEach((f, i) => detalle.push({
-    id_detalle: `${id}_D${i + 1}`, id_dia: id, id_producto: f.id_producto,
-    cant_programada: f.cant_programada, cant_realizada: '', cant_fundida: '',
-    dev_suave: '', dev_bajo_peso: '', dev_presentacion: '', dev_contaminacion: '', fecha_reg: ''
-  }));
-  if (!dias.find(d => d.id_dia === id)) {
-    dias.push({ id_dia: id, planta: 'HONDA', fecha, estado: ESTADO.PROGRAMADO });
+  const filas = filasDetalle(id, cambios);
+  const previo = dias.find(d => d.id_dia === id);
+  const dia = previo ? { ...previo } : {
+    ...filaVacia(COLS_DIA), id_dia: id, planta: 'HONDA', fecha,
+    estado: ESTADO.PROGRAMADO, creado_por: userInfo?.email || '', fecha_creacion: ahora()
+  };
+  dia.fecha = fecha;
+  dia.ultima_edicion = ahora();
+
+  if (hayHoja()) {
+    const ok = await conBloqueo('Guardando programación', async () => {
+      await guardarCabecera(dia);
+      await reemplazarDetalle(HOJA_DETALLE, cols(HOJA_DETALLE, COLS_DETALLE), id, filas);
+    });
+    if (!ok) return;
+  }
+
+  detalle = detalle.filter(d => d.id_dia !== id).concat(filas);
+  if (previo) Object.assign(previo, dia);
+  else {
+    dias.push(dia);
     dias.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
   }
-  toast(SHEET_ID
-    ? 'El guardado en la hoja se conecta en el siguiente paso.'
-    : 'Programación guardada solo en memoria: falta el ID del Sheets de Honda.', 'error');
+  toast(hayHoja()
+    ? 'Programación guardada.'
+    : 'Programación guardada solo en memoria: falta el ID del Sheets de Honda.',
+    hayHoja() ? 'success' : 'error');
 
   refrescarDia();
   renderHistorialHonda();
@@ -1114,16 +1243,107 @@ function limpiarProduccion() {
   recalcularProduccion();
 }
 
-function guardarProduccion() {
+// Los campos del día y los del queso pera, con la columna de la hoja a la
+// que va cada uno. Vacío se guarda vacío (ver `guardable`).
+const CAMPOS_DIA = {
+  cantinas_procesadas: 'f-cantinas-procesadas', cantinas_pv_venta_bocados: 'f-cantinas-pv',
+  cantinas_guardadas: 'f-cantinas-guardadas', litros_crema_producida: 'f-litros-crema',
+  litros_crema_pasteurizada: 'f-crema-pasteurizada', cantinas_descremadas: 'f-cantinas-descremadas',
+  litros_batidos: 'f-litros-batidos', libras_mantequilla: 'f-libras-mantequilla',
+  cant_jennos: 'f-cant-jennos', cuajo_gr: 'f-cuajo', sal_gr: 'f-sal',
+  sal_vital_gr: 'f-sal-vital', citrato_gr: 'f-citrato', blen_max_gr: 'f-blen-max',
+  acido_citrico_gr: 'f-acido-citrico', libras_fundidas: 'f-libras-fundidas',
+  fundido_blen_max_gr: 'f-fundido-blen-max', fundido_caseinato_gr: 'f-fundido-caseinato'
+};
+const CAMPOS_PERA = {
+  sal_gr: 'f-pera-sal', citrato_gr: 'f-pera-citrato', blen_max_gr: 'f-pera-blen-max',
+  cuajo_gr: 'f-pera-cuajo', cantinas_cuajadas: 'f-pera-cantinas',
+  unid_no_conformes: 'f-pera-no-conformes', saldo_dosificadora: 'f-pera-saldo',
+  mejoramiento_lb: 'f-pera-mejoramiento'
+};
+
+async function guardarProduccion() {
   if (diaCerrado()) return avisarCerrado();
   const malas = validarRangoFechas(document.getElementById('view-dia'));
   if (malas.length) return avisarFechasInvalidas(malas);
   const fecha = document.getElementById('f-fecha').value;
   if (!fecha) return toast('Falta la fecha del día.', 'error');
-  if (!SHEET_ID) {
-    return toast('Todavía no hay hoja de cálculo conectada. Falta el ID del Sheets de Honda.', 'error');
+  const id = idDia(fecha);
+
+  // 1. Detalle por producto
+  const cambios = [];
+  document.querySelectorAll('#tbody-produccion tr').forEach(tr => {
+    const g = cls => {
+      const el = tr.querySelector('.' + cls);
+      if (!el) return '';
+      const v = el.value.trim();
+      return v === '' ? '' : num(v);
+    };
+    cambios.push({
+      id_producto: tr.dataset.producto,
+      cant_realizada: g('c-real'), cant_fundida: g('c-fund'),
+      dev_suave: g('d-suave'), dev_bajo_peso: g('d-peso'),
+      dev_presentacion: g('d-pres'), dev_contaminacion: g('d-cont')
+    });
+  });
+  const filas = filasDetalle(id, cambios);
+
+  // 2. Cabecera del día
+  const previo = dias.find(d => d.id_dia === id);
+  const dia = previo ? { ...previo } : {
+    ...filaVacia(COLS_DIA), id_dia: id, planta: 'HONDA', fecha,
+    creado_por: userInfo?.email || '', fecha_creacion: ahora()
+  };
+  dia.planta = 'HONDA';
+  dia.fecha = fecha;
+  Object.entries(CAMPOS_DIA).forEach(([col, campo]) => { dia[col] = guardable(campo); });
+  dia.observaciones = txt('f-observaciones');
+  dia.estado = dia.estado === ESTADO.CERRADO ? ESTADO.CERRADO : ESTADO.ABIERTO;
+  dia.ultima_edicion = ahora();
+
+  // 3. Reproceso: una fila por origen con dato
+  const repFilas = [];
+  document.querySelectorAll('.r-lb').forEach(el => {
+    const v = el.value.trim();
+    if (v === '' || num(v) === 0) return;
+    repFilas.push({ id_reproceso: '', id_dia: id, origen: el.dataset.origen,
+                    libras: num(v), fecha_reg: ahora() });
+  });
+  repFilas.forEach((r, i) => { r.id_reproceso = `${id}_R${i + 1}`; });
+
+  // 4. Queso pera: una sola fila, y solo si tiene algo
+  const pera = { ...filaVacia(COLS_PERA), id_pera: `${id}_P`, id_dia: id };
+  Object.entries(CAMPOS_PERA).forEach(([col, campo]) => { pera[col] = guardable(campo); });
+  pera.observaciones = txt('f-pera-observaciones');
+  const hayPera = COLS_PERA.slice(2).some(k => String(pera[k] ?? '') !== '');
+  const peraFilas = hayPera ? [pera] : [];
+
+  if (hayHoja()) {
+    const ok = await conBloqueo('Guardando producción', async () => {
+      await guardarCabecera(dia);
+      await reemplazarDetalle(HOJA_DETALLE,   cols(HOJA_DETALLE, COLS_DETALLE),     id, filas);
+      await reemplazarDetalle(HOJA_REPROCESO, cols(HOJA_REPROCESO, COLS_REPROCESO), id, repFilas);
+      await reemplazarDetalle(HOJA_PERA,      cols(HOJA_PERA, COLS_PERA),           id, peraFilas);
+    });
+    if (!ok) return;
   }
-  toast('El guardado se conecta en el siguiente paso.', 'error');
+
+  detalle    = detalle.filter(d => d.id_dia !== id).concat(filas);
+  reprocesos = reprocesos.filter(r => r.id_dia !== id).concat(repFilas);
+  peras      = peras.filter(p => p.id_dia !== id).concat(peraFilas);
+  if (previo) Object.assign(previo, dia);
+  else {
+    dias.push(dia);
+    dias.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+  }
+
+  toast(hayHoja()
+    ? 'Producción guardada.'
+    : 'Producción guardada solo en memoria: falta el ID del Sheets de Honda.',
+    hayHoja() ? 'success' : 'error');
+
+  refrescarDia();
+  renderHistorialHonda();
 }
 
 // ── Pestañas, estado del día y correcciones ──────────────────────────────
@@ -1170,22 +1390,28 @@ function aplicarEstadoDia() {
   if (!dia) document.getElementById('panel-mover').style.display = 'none';
 }
 
-function alternarCierreDia() {
+async function alternarCierreDia() {
   const dia = diaActual();
   if (!dia) return toast('Este día todavía no tiene nada guardado.', 'error');
-  if (dia.estado === ESTADO.CERRADO) {
-    // Igual que en Mosquera: reabrir es solo de administradores
-    if (!isAdmin()) return toast('Solo los administradores pueden reabrir un día cerrado.', 'error');
-    dia.estado = ESTADO.ABIERTO;
-    toast('Día reabierto. Ya puedes editarlo.');
-  } else {
-    dia.estado = ESTADO.CERRADO;
-    toast('Día cerrado.');
+  const cerrando = dia.estado !== ESTADO.CERRADO;
+  // Igual que en Mosquera: reabrir es solo de administradores
+  if (!cerrando && !isAdmin()) {
+    return toast('Solo los administradores pueden reabrir un día cerrado.', 'error');
   }
+  const nuevo = { ...dia, estado: cerrando ? ESTADO.CERRADO : ESTADO.ABIERTO,
+                  ultima_edicion: ahora() };
+
+  if (hayHoja()) {
+    const ok = await conBloqueo(cerrando ? 'Cerrando el día' : 'Reabriendo el día',
+                                () => guardarCabecera(nuevo));
+    if (!ok) return;
+  }
+
+  Object.assign(dia, nuevo);
   set('f-estado', dia.estado);
   aplicarEstadoDia();
   renderHistorialHonda();
-  if (SHEET_ID) toast('El cambio de estado se escribe en la hoja en el siguiente paso.', 'error');
+  toast(cerrando ? 'Día cerrado.' : 'Día reabierto. Ya puedes editarlo.');
 }
 
 function alternarMoverFecha() {
@@ -1197,7 +1423,7 @@ function alternarMoverFecha() {
 
 // Corrige el caso de haber guardado un día con la fecha equivocada: se lleva
 // la cabecera, el detalle, el reproceso y el queso pera a la fecha nueva.
-function moverDia() {
+async function moverDia() {
   const dia = diaActual();
   if (!dia) return toast('Este día no tiene nada guardado que mover.', 'error');
   const nueva = document.getElementById('f-fecha-nueva').value;
@@ -1210,43 +1436,70 @@ function moverDia() {
     return toast('El ' + fmtFecha(nueva) + ' ya tiene un registro. Revísalo antes de mover.', 'error');
   }
 
+  // Se arma todo con la fecha nueva ANTES de escribir: si la hoja falla,
+  // lo que está en pantalla no queda a medio camino.
   const viejoId = dia.id_dia;
-  detalle.filter(d => d.id_dia === viejoId).forEach((d, i) => {
-    d.id_dia = nuevoId; d.id_detalle = `${nuevoId}_D${i + 1}`;
-  });
-  reprocesos.filter(r => r.id_dia === viejoId).forEach((r, i) => {
-    r.id_dia = nuevoId; r.id_reproceso = `${nuevoId}_R${i + 1}`;
-  });
-  peras.filter(x => x.id_dia === viejoId).forEach(x => {
-    x.id_dia = nuevoId; x.id_pera = `${nuevoId}_P`;
-  });
-  dia.id_dia = nuevoId; dia.fecha = nueva;
+  const nuevoDia = { ...dia, id_dia: nuevoId, fecha: nueva, ultima_edicion: ahora() };
+  const nuevoDetalle = detalle.filter(d => d.id_dia === viejoId)
+    .map((d, i) => ({ ...d, id_dia: nuevoId, id_detalle: `${nuevoId}_D${i + 1}` }));
+  const nuevoRep = reprocesos.filter(r => r.id_dia === viejoId)
+    .map((r, i) => ({ ...r, id_dia: nuevoId, id_reproceso: `${nuevoId}_R${i + 1}` }));
+  const nuevoPera = peras.filter(x => x.id_dia === viejoId)
+    .map(x => ({ ...x, id_dia: nuevoId, id_pera: `${nuevoId}_P` }));
+
+  if (hayHoja()) {
+    const ok = await conBloqueo('Moviendo el día', async () => {
+      // La cabecera se reescribe sobre su propia fila, con el id nuevo
+      const cd = cols(HOJA_DIA, COLS_DIA);
+      const row = await sheetsFindRow(HOJA_DIA, 0, viejoId);
+      if (row > 0) await sheetsUpdate(`${HOJA_DIA}!A${row}:${finCol(cd)}${row}`,
+                                      [objToRow(nuevoDia, cd)]);
+      else await sheetsAppend(`${HOJA_DIA}!A:${finCol(cd)}`, [objToRow(nuevoDia, cd)]);
+      // Las hijas se borran por el id viejo y se vuelven a agregar con el nuevo
+      await reemplazarDetalle(HOJA_DETALLE,   cols(HOJA_DETALLE, COLS_DETALLE),     viejoId, nuevoDetalle);
+      await reemplazarDetalle(HOJA_REPROCESO, cols(HOJA_REPROCESO, COLS_REPROCESO), viejoId, nuevoRep);
+      await reemplazarDetalle(HOJA_PERA,      cols(HOJA_PERA, COLS_PERA),           viejoId, nuevoPera);
+    });
+    if (!ok) return;
+  }
+
+  Object.assign(dia, nuevoDia);
+  detalle    = detalle.filter(d => d.id_dia !== viejoId).concat(nuevoDetalle);
+  reprocesos = reprocesos.filter(r => r.id_dia !== viejoId).concat(nuevoRep);
+  peras      = peras.filter(x => x.id_dia !== viejoId).concat(nuevoPera);
   dias.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
 
   document.getElementById('panel-mover').style.display = 'none';
   set('f-fecha', nueva);
   refrescarDia();
   renderHistorialHonda();
-  toast(SHEET_ID
-    ? 'Movido. El cambio en la hoja se escribe en el siguiente paso.'
-    : 'Movido al ' + fmtFecha(nueva) + '.');
+  toast('Movido al ' + fmtFecha(nueva) + '.');
 }
 
-function borrarDia() {
+async function borrarDia() {
   const dia = diaActual();
   if (!dia) return;
   if (!isAdmin()) return toast('Solo los administradores pueden eliminar un día.', 'error');
   if (!confirm('¿Eliminar todo lo registrado del ' + fmtFecha(dia.fecha) + '? No se puede deshacer.')) return;
   const id = dia.id_dia;
+
+  if (hayHoja()) {
+    const ok = await conBloqueo('Eliminando el día', async () => {
+      await reemplazarDetalle(HOJA_DETALLE,   cols(HOJA_DETALLE, COLS_DETALLE),     id, []);
+      await reemplazarDetalle(HOJA_REPROCESO, cols(HOJA_REPROCESO, COLS_REPROCESO), id, []);
+      await reemplazarDetalle(HOJA_PERA,      cols(HOJA_PERA, COLS_PERA),           id, []);
+      await borrarCabecera(id);
+    });
+    if (!ok) return;
+  }
+
   dias = dias.filter(d => d.id_dia !== id);
   detalle = detalle.filter(d => d.id_dia !== id);
   reprocesos = reprocesos.filter(r => r.id_dia !== id);
   peras = peras.filter(x => x.id_dia !== id);
   refrescarDia();
   renderHistorialHonda();
-  toast(SHEET_ID
-    ? 'Eliminado. El borrado en la hoja se escribe en el siguiente paso.'
-    : 'Día eliminado.');
+  toast('Día eliminado.');
 }
 
 // Desde el historial: abre un día en el registro, en la pestaña que se pida
