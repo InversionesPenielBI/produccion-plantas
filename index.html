@@ -36,8 +36,8 @@
    Fundido y devoluciones son secciones aparte: se separan con su propio
    fondo y una ranura vertical a cada lado. */
 #tabla-produccion .g-fundido {
-  background: #f6f1dc;                 /* amarillo claro */
-  box-shadow: inset  1px 0 0 #e0d7b4, inset -1px 0 0 #e0d7b4;
+  background: #fbf8ea;                 /* amarillo muy claro */
+  box-shadow: inset  1px 0 0 #ece5cb, inset -1px 0 0 #ece5cb;
 }
 #tabla-produccion .g-devol {
   background: #e4edf6;                 /* azul claro */
@@ -77,6 +77,14 @@
 .tab.llena .punto { background: var(--ok); }
 .tab-panel { display: none; }
 .tab-panel.activo { display: block; }
+
+/* ── Estado del día: cada uno con su fondo, para ubicarlo de un vistazo ── */
+.est-PROGRAMADO { background: #e4edf6; color: #2e6da4; }
+.est-ABIERTO    { background: #e2f1e7; color: #2b7a45; }
+.est-CERRADO    { background: #e9ecf1; color: #7b8794; }
+
+/* Botones de acción del historial, uno al lado del otro */
+.acciones-fila { display: flex; gap: 6px; justify-content: flex-end; }
 
 /* ── Botones de la tarjeta del día: cada acción con su color ─────────── */
 .btn-mover  { color: var(--accent-mid); }
@@ -898,7 +906,7 @@ let guardando = false;
 async function conBloqueo(etiqueta, fn) {
   if (guardando) { toast('Espera: hay un guardado en curso.', 'error'); return false; }
   guardando = true;
-  const botones = [...document.querySelectorAll('#view-dia button')];
+  const botones = [...document.querySelectorAll('#view-dia button, #view-historial button')];
   botones.forEach(b => b.disabled = true);
   const estado = document.getElementById('sync-status');
   const antes = estado.textContent;
@@ -1010,60 +1018,20 @@ function recalcularProgramacion() {
 
 const detalleDeDia = id => detalle.filter(d => d.id_dia === id);
 
+// Limpiar solo vacía SU pestaña; la otra ni se toca. Como al guardar se
+// escribe lo que hay en pantalla, se pregunta antes para que no sea un
+// borrado por accidente.
 function limpiarProgramacion() {
   if (diaCerrado()) return avisarCerrado();
+  if (!confirm('¿Borrar los bloques programados que hay en pantalla?\n' +
+               'La pestaña de producción no se toca. Nada se guarda hasta que le des Guardar.')) return;
   document.querySelectorAll('#tbody-programacion .p-prog').forEach(el => el.value = '');
   recalcularProgramacion();
 }
 
-async function guardarProgramacion() {
-  if (diaCerrado()) return avisarCerrado();
-  const malas = validarRangoFechas(document.getElementById('view-dia'));
-  if (malas.length) return avisarFechasInvalidas(malas);
-  const fecha = document.getElementById('f-fecha').value;
-  if (!fecha) return toast('Falta la fecha del día.', 'error');
-  const id = idDia(fecha);
-
-  const cambios = [];
-  document.querySelectorAll('#tbody-programacion tr').forEach(tr => {
-    const v = tr.querySelector('.p-prog').value.trim();
-    cambios.push({ id_producto: tr.dataset.producto, cant_programada: v === '' ? '' : num(v) });
-  });
-  if (!cambios.some(c => num(c.cant_programada) > 0)) {
-    return toast('No hay ningún bloque programado.', 'error');
-  }
-
-  const filas = filasDetalle(id, cambios);
-  const previo = dias.find(d => d.id_dia === id);
-  const dia = previo ? { ...previo } : {
-    ...filaVacia(COLS_DIA), id_dia: id, planta: 'HONDA', fecha,
-    estado: ESTADO.PROGRAMADO, creado_por: userInfo?.email || '', fecha_creacion: ahora()
-  };
-  dia.fecha = fecha;
-  dia.ultima_edicion = ahora();
-
-  if (hayHoja()) {
-    const ok = await conBloqueo('Guardando programación', async () => {
-      await guardarCabecera(dia);
-      await reemplazarDetalle(HOJA_DETALLE, cols(HOJA_DETALLE, COLS_DETALLE), id, filas);
-    });
-    if (!ok) return;
-  }
-
-  detalle = detalle.filter(d => d.id_dia !== id).concat(filas);
-  if (previo) Object.assign(previo, dia);
-  else {
-    dias.push(dia);
-    dias.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
-  }
-  toast(hayHoja()
-    ? 'Programación guardada.'
-    : 'Programación guardada solo en memoria: falta el ID del Sheets de Honda.',
-    hayHoja() ? 'success' : 'error');
-
-  refrescarDia();
-  renderHistorialHonda();
-}
+// Guardar desde la pestaña de programación guarda el día completo (ver
+// `guardarDia`), así no se pierde lo que haya escrito en producción.
+async function guardarProgramacion() { return guardarDia('programacion'); }
 
 // ── 2. Producción del día ────────────────────────────────────────────────
 function renderTablaProduccion() {
@@ -1196,9 +1164,13 @@ function recalcularProduccion() {
   document.getElementById('m-cumplimiento').textContent = pct(totalLb, totalProg);
 
   set('f-fundido-total', lb1(totalFund));
-  const merma = totalFund - val('f-libras-fundidas');
+  // Merma = lo que entró al fundidor menos lo que salió en bloques, y el
+  // porcentaje se saca sobre las libras fundidas (lo que entró), no sobre lo
+  // que salió. Igual que en el Excel.
+  const fundidas = val('f-libras-fundidas');
+  const merma = fundidas - totalFund;
   set('f-merma', totalFund ? lb1(merma) : '');
-  set('f-pct-merma', totalFund ? pct(merma, totalFund) : '');
+  set('f-pct-merma', totalFund ? pct(merma, fundidas) : '');
   set('f-pp-masa-fundido', totalFund ? lb1(totalFund * LB_POR_GRAMOS) : '');
 
   // Cantinas: las de pera vienen de la sección Queso pera, no se piden dos veces
@@ -1236,6 +1208,9 @@ function recalcularProduccion() {
 
 function limpiarProduccion() {
   if (diaCerrado()) return avisarCerrado();
+  if (!confirm('¿Borrar lo que hay en pantalla en la pestaña de producción?\n' +
+               'Incluye reproceso y queso pera. La programación no se toca, ' +
+               'y nada se guarda hasta que le des Guardar.')) return;
   document.querySelectorAll('#panel-produccion input, #panel-produccion textarea').forEach(el => {
     if (el.readOnly) return;
     el.value = '';
@@ -1262,7 +1237,41 @@ const CAMPOS_PERA = {
   mejoramiento_lb: 'f-pera-mejoramiento'
 };
 
-async function guardarProduccion() {
+async function guardarProduccion() { return guardarDia('produccion'); }
+
+// Lo que hay escrito en cada pestaña, en el formato de la hoja
+function cambiosProgramacion() {
+  return [...document.querySelectorAll('#tbody-programacion tr')].map(tr => {
+    const v = tr.querySelector('.p-prog').value.trim();
+    return { id_producto: tr.dataset.producto, cant_programada: v === '' ? '' : num(v) };
+  });
+}
+
+function cambiosProduccion() {
+  return [...document.querySelectorAll('#tbody-produccion tr')].map(tr => {
+    const g = cls => {
+      const el = tr.querySelector('.' + cls);
+      if (!el) return '';
+      const v = el.value.trim();
+      return v === '' ? '' : num(v);
+    };
+    return {
+      id_producto: tr.dataset.producto,
+      cant_realizada: g('c-real'), cant_fundida: g('c-fund'),
+      dev_suave: g('d-suave'), dev_bajo_peso: g('d-peso'),
+      dev_presentacion: g('d-pres'), dev_contaminacion: g('d-cont')
+    };
+  });
+}
+
+// ── Guardar el día ───────────────────────────────────────────────────────
+// Las dos pestañas son UN SOLO registro, así que cualquiera de los dos botones
+// guarda el día completo: programación, producción, reproceso y queso pera.
+// Antes no era así y pasaba esto: escribías producción sin guardar, te dabas
+// cuenta de que faltaba un bloque en programación, volvías, guardabas — y la
+// producción escrita se perdía, porque el guardado la reconstruía desde la hoja.
+// `desde` solo cambia qué se valida y qué dice el aviso.
+async function guardarDia(desde) {
   if (diaCerrado()) return avisarCerrado();
   const malas = validarRangoFechas(document.getElementById('view-dia'));
   if (malas.length) return avisarFechasInvalidas(malas);
@@ -1270,23 +1279,14 @@ async function guardarProduccion() {
   if (!fecha) return toast('Falta la fecha del día.', 'error');
   const id = idDia(fecha);
 
-  // 1. Detalle por producto
-  const cambios = [];
-  document.querySelectorAll('#tbody-produccion tr').forEach(tr => {
-    const g = cls => {
-      const el = tr.querySelector('.' + cls);
-      if (!el) return '';
-      const v = el.value.trim();
-      return v === '' ? '' : num(v);
-    };
-    cambios.push({
-      id_producto: tr.dataset.producto,
-      cant_realizada: g('c-real'), cant_fundida: g('c-fund'),
-      dev_suave: g('d-suave'), dev_bajo_peso: g('d-peso'),
-      dev_presentacion: g('d-pres'), dev_contaminacion: g('d-cont')
-    });
-  });
-  const filas = filasDetalle(id, cambios);
+  // 1. Detalle por producto: las dos pestañas juntas
+  const prog = cambiosProgramacion();
+  if (desde === 'programacion' && !prog.some(c => num(c.cant_programada) > 0)) {
+    return toast('No hay ningún bloque programado.', 'error');
+  }
+  const filas = filasDetalle(id, [...prog, ...cambiosProduccion()]);
+  const hayProduccion = filas.some(f =>
+    String(f.cant_realizada) !== '' || String(f.cant_fundida) !== '');
 
   // 2. Cabecera del día
   const previo = dias.find(d => d.id_dia === id);
@@ -1298,7 +1298,12 @@ async function guardarProduccion() {
   dia.fecha = fecha;
   Object.entries(CAMPOS_DIA).forEach(([col, campo]) => { dia[col] = guardable(campo); });
   dia.observaciones = txt('f-observaciones');
-  dia.estado = dia.estado === ESTADO.CERRADO ? ESTADO.CERRADO : ESTADO.ABIERTO;
+  // Un día recién programado queda PROGRAMADO; pasa a ABIERTO en cuanto hay
+  // algo cortado, y CERRADO manda siempre.
+  if (dia.estado !== ESTADO.CERRADO) {
+    dia.estado = (hayProduccion || dia.estado === ESTADO.ABIERTO)
+      ? ESTADO.ABIERTO : ESTADO.PROGRAMADO;
+  }
   dia.ultima_edicion = ahora();
 
   // 3. Reproceso: una fila por origen con dato
@@ -1319,7 +1324,7 @@ async function guardarProduccion() {
   const peraFilas = hayPera ? [pera] : [];
 
   if (hayHoja()) {
-    const ok = await conBloqueo('Guardando producción', async () => {
+    const ok = await conBloqueo('Guardando el día', async () => {
       await guardarCabecera(dia);
       await reemplazarDetalle(HOJA_DETALLE,   cols(HOJA_DETALLE, COLS_DETALLE),     id, filas);
       await reemplazarDetalle(HOJA_REPROCESO, cols(HOJA_REPROCESO, COLS_REPROCESO), id, repFilas);
@@ -1337,9 +1342,10 @@ async function guardarProduccion() {
     dias.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
   }
 
-  toast(hayHoja()
-    ? 'Producción guardada.'
-    : 'Producción guardada solo en memoria: falta el ID del Sheets de Honda.',
+  const que = hayProduccion ? 'Día guardado: programación y producción.'
+                            : 'Programación guardada.';
+  toast(hayHoja() ? que
+    : que.replace('.', ' — solo en memoria: falta el ID del Sheets de Honda.'),
     hayHoja() ? 'success' : 'error');
 
   refrescarDia();
@@ -1390,8 +1396,9 @@ function aplicarEstadoDia() {
   if (!dia) document.getElementById('panel-mover').style.display = 'none';
 }
 
-async function alternarCierreDia() {
-  const dia = diaActual();
+// Cierre y reapertura. Sirve tanto al botón de la tarjeta del día como al
+// del historial, por eso recibe el día en vez de mirar la fecha en pantalla.
+async function cambiarCierre(dia) {
   if (!dia) return toast('Este día todavía no tiene nada guardado.', 'error');
   const cerrando = dia.estado !== ESTADO.CERRADO;
   // Igual que en Mosquera: reabrir es solo de administradores
@@ -1408,11 +1415,19 @@ async function alternarCierreDia() {
   }
 
   Object.assign(dia, nuevo);
-  set('f-estado', dia.estado);
-  aplicarEstadoDia();
+  // Si es el día que está abierto en la pantalla de captura, actualizarla
+  if (dia.id_dia === idDiaActual()) {
+    set('f-estado', dia.estado);
+    aplicarEstadoDia();
+  }
   renderHistorialHonda();
-  toast(cerrando ? 'Día cerrado.' : 'Día reabierto. Ya puedes editarlo.');
+  toast(cerrando
+    ? `Día ${fmtFecha(dia.fecha)} cerrado.`
+    : `Día ${fmtFecha(dia.fecha)} reabierto. Ya puedes editarlo.`);
 }
+
+async function alternarCierreDia()      { return cambiarCierre(diaActual()); }
+async function cerrarDiaHistorial(id)   { return cambiarCierre(dias.find(d => d.id_dia === id)); }
 
 function alternarMoverFecha() {
   const panel = document.getElementById('panel-mover');
@@ -1644,7 +1659,7 @@ function renderHistorialHonda() {
       <tr class="fila-dia" onclick="alternarDetalleDia('${esc(d.id_dia)}', this)">
         <td><span class="chev">▸</span></td>
         <td>${fmtFecha(d.fecha)}</td>
-        <td><span class="badge ${d.estado === 'CERRADO' ? 'badge-gray' : 'badge-blue'}">${esc(d.estado || '—')}</span></td>
+        <td><span class="badge est-${esc(d.estado || 'PROGRAMADO')}">${esc(d.estado || '—')}</span></td>
         <td class="mono">${t.progBloques ? lb1(t.progBloques) : '—'}</td>
         <td class="mono">${t.bloques ? lb1(t.bloques) : '—'}</td>
         <td class="mono">${t.cumpl != null ? (t.cumpl * 100).toFixed(1) + ' %' : '—'}</td>
@@ -1655,7 +1670,14 @@ function renderHistorialHonda() {
         <td class="mono">${t.cantinasProcesadas ? ent(t.cantinasProcesadas * LITROS_POR_CANTINA) : '—'}</td>
         <td class="mono">${t.promSinCrema != null ? lb1(t.promSinCrema) : '—'}</td>
         <td onclick="event.stopPropagation()">
-          <button class="btn btn-sm" onclick="abrirDia('${esc(d.fecha)}')">Ver</button>
+          <div class="acciones-fila">
+            <button class="btn btn-sm" onclick="abrirDia('${esc(d.fecha)}')">Ver</button>
+            ${(d.estado !== ESTADO.CERRADO || isAdmin()) ? `
+            <button class="btn btn-sm btn-cerrar ${d.estado === ESTADO.CERRADO ? 'reabrir' : ''}"
+                    onclick="cerrarDiaHistorial('${esc(d.id_dia)}')">
+              ${d.estado === ESTADO.CERRADO ? 'Reabrir' : 'Cerrar'}
+            </button>` : ''}
+          </div>
         </td>
       </tr>
       <tr class="fila-detalle" id="det-${esc(d.id_dia)}" style="display:none"><td colspan="13"></td></tr>`;
