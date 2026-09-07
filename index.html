@@ -777,17 +777,19 @@ const CATALOGO_RESPALDO = [
   ['DC-2250','HONDA','DOBLE CREMA SED',2250,'BLOQUE',5,'',''],
   ['DC-2410','HONDA','DOBLE CREMA SED',2410,'BLOQUE',6,'',''],
   ['DC-2500','HONDA','DOBLE CREMA SED',2500,'BLOQUE',7,'',''],
-  ['SBL-2500','HONDA','SEMIBLANDO DON MAIZ',2500,'BLOQUE',8,'',''],
-  ['PAR-2500','HONDA','PARTIDO DON MAIZ',2500,'BLOQUE',9,'',''],
-  ['DUR-2500','HONDA','DURO DON MAIZ',2500,'BLOQUE',10,'',''],
-  ['JEN-2500','HONDA','JENNOS PIZZA',2500,'BLOQUE',11,'',''],
-  ['MEJ-2500','HONDA','MEJORAMIENTO',2500,'BLOQUE',12,'',''],
-  ['VMZ-2500','HONDA','VENTA MOZARELLA',2500,'BLOQUE',13,'',''],
-  ['MOZ-1920','HONDA','MOZARELLA SED',1920,'BLOQUE',14,'',''],
-  ['MOZ-2200','HONDA','MOZARELLA SED',2200,'BLOQUE',15,'',''],
-  ['MOZ-2410','HONDA','MOZARELLA SED',2410,'BLOQUE',16,'',''],
-  ['PERA-300','HONDA','QUESO PERA',300,'UNIDAD',17,'',''],
-  ['PERA-1000','HONDA','QUESO PERA',1000,'UNIDAD',18,'',''],
+   ['MON-3300','HONDA','MONEDA DON MAIZ',3300,'BLOQUE',8,'',''],
+  ['SBL-2500','HONDA','SEMIBLANDO DON MAIZ',2500,'BLOQUE',9,'',''],
+  ['PAR-2500','HONDA','PARTIDO DON MAIZ',2500,'BLOQUE',10,'',''],
+  ['DUR-2500','HONDA','DURO DON MAIZ',2500,'BLOQUE',11,'',''],
+  ['MON-3300','HONDA','MONEDA DON MAIZ',3300,'BLOQUE',12,'',''],
+  ['JEN-2500','HONDA','JENNOS PIZZA',2500,'BLOQUE',13,'',''],
+  ['MEJ-2500','HONDA','MEJORAMIENTO',2500,'BLOQUE',14,'',''],
+  ['VMZ-2500','HONDA','VENTA MOZARELLA',2500,'BLOQUE',15,'',''],
+  ['MOZ-1920','HONDA','MOZARELLA SED',1920,'BLOQUE',16,'',''],
+  ['MOZ-2200','HONDA','MOZARELLA SED',2200,'BLOQUE',17,'',''],
+  ['MOZ-2410','HONDA','MOZARELLA SED',2410,'BLOQUE',18,'',''],
+  ['PERA-300','HONDA','QUESO PERA',300,'UNIDAD',19,'',''],
+  ['PERA-1000','HONDA','QUESO PERA',1000,'UNIDAD',20,'',''],
 ].map(r => rowToObj(r, COLS_CATALOGO));
 
 let catalogo = [];
@@ -812,6 +814,72 @@ const aKg = lb => lb * KG_POR_LIBRA;
 // Un campo vacío se guarda VACÍO, no como cero: así se distingue "no se
 // digitó" de "se produjo cero". Para los cálculos vacío vale 0.
 const guardable = id => { const v = txt(id); return v === '' ? '' : num(v); };
+
+// ── Lectura sin formato ──────────────────────────────────────────────────
+// La API de Sheets, por defecto, devuelve los valores YA FORMATEADOS según el
+// idioma de la hoja. En una hoja en español eso convierte 158,975 cantinas en
+// el texto "158,975", y parseFloat lo lee como 158: se perderían los decimales
+// sin que nadie se entere. Por eso se pide UNFORMATTED_VALUE.
+// Google responde 429/500/503 de vez en cuando, sin que haya nada mal: son
+// errores temporales de su lado. Antes, uno solo tumbaba el guardado entero.
+// Ahora se reintenta con esperas crecientes (0,8 s · 1,6 s · 3,2 s · 6,4 s).
+const REINTENTOS = 4;
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+const TEMPORAL = [408, 429, 500, 502, 503, 504];
+
+async function pedir(url, opts = {}) {
+  let ultimo = null;
+  for (let i = 0; i <= REINTENTOS; i++) {
+    if (i) await esperar(800 * Math.pow(2, i - 1));
+    let r;
+    try {
+      r = await apiFetch(url, { ...opts });
+    } catch (e) {
+      ultimo = new Error('Sin conexión con Google. Revisa el internet.');
+      continue;                      // fallo de red: también se reintenta
+    }
+    if (r.status === 401) { forzarLogout('Tu sesión expiró. Inicia sesión nuevamente.'); throw new Error('401'); }
+    if (r.ok) return r.json();
+    if (!TEMPORAL.includes(r.status)) {
+      const detalle = r.status === 403
+        ? 'no tienes permiso de edición sobre la hoja'
+        : 'código ' + r.status;
+      throw new Error('Google rechazó la operación (' + detalle + ').');
+    }
+    ultimo = new Error('Google no respondió (código ' + r.status + '). ' +
+                       'Es un problema temporal de su lado; vuelve a intentar en un momento.');
+  }
+  throw ultimo;
+}
+
+const URL_HOJA = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
+const JSON_POST = cuerpo => ({
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo)
+});
+
+async function leerRango(rango) {
+  return pedir(`${URL_HOJA}/values/${encodeURIComponent(rango)}` +
+               `?valueRenderOption=UNFORMATTED_VALUE`, {});
+}
+
+// Y como contrapartida, si la celda de fecha quedó con formato de fecha, sin
+// formato vuelve como número de serie de Google (días desde el 30/12/1899).
+// Se normaliza siempre a AAAA-MM-DD, venga como venga.
+function aISO(v) {
+  if (v === '' || v == null) return '';
+  if (typeof v === 'number' && v > 20000 && v < 80000) {
+    return new Date(Date.UTC(1899, 11, 30) + v * 86400000).toISOString().split('T')[0];
+  }
+  const t = String(v).trim();
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(t)) {
+    const [a, m, d] = t.split('-');
+    return `${a}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  // dd/mm/aaaa, que es como lo muestra una hoja en español
+  const m2 = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/.exec(t);
+  if (m2) return `${m2[3]}-${m2[2].padStart(2, '0')}-${m2[1].padStart(2, '0')}`;
+  return t;
+}
 
 // ── Columnas: se trabaja por NOMBRE, no por posición ─────────────────────
 // El orden real de cada hoja se lee de su fila 1 al arrancar. Así, mover una
@@ -854,11 +922,11 @@ async function cargarDatos() {
       estado.textContent = 'Cargando...';
       const fin = c => colLetra(c.length - 1);
       const [cat, d, det, rep, per] = await Promise.all([
-        sheetsGet(`${HOJA_CATALOGO}!A:${fin(COLS_CATALOGO)}`),
-        sheetsGet(`${HOJA_DIA}!A:${fin(COLS_DIA)}`),
-        sheetsGet(`${HOJA_DETALLE}!A:${fin(COLS_DETALLE)}`),
-        sheetsGet(`${HOJA_REPROCESO}!A:${fin(COLS_REPROCESO)}`),
-        sheetsGet(`${HOJA_PERA}!A:${fin(COLS_PERA)}`)
+        leerRango(`${HOJA_CATALOGO}!A:${fin(COLS_CATALOGO)}`),
+        leerRango(`${HOJA_DIA}!A:${fin(COLS_DIA)}`),
+        leerRango(`${HOJA_DETALLE}!A:${fin(COLS_DETALLE)}`),
+        leerRango(`${HOJA_REPROCESO}!A:${fin(COLS_REPROCESO)}`),
+        leerRango(`${HOJA_PERA}!A:${fin(COLS_PERA)}`)
       ]);
       // sheetsGet devuelve la respuesta completa de la API: las filas van en .values
       const filas = r => (r?.values || []).slice(1);
@@ -878,6 +946,7 @@ async function cargarDatos() {
         toast('La hoja CATALOGO está vacía: se usa el catálogo de respaldo.', 'error');
       }
       dias       = filas(d).map(r => rowToObj(r, cols(HOJA_DIA, COLS_DIA))).filter(x => x.id_dia);
+      dias.forEach(x => { x.fecha = aISO(x.fecha); });
       detalle    = filas(det).map(r => rowToObj(r, cols(HOJA_DETALLE, COLS_DETALLE))).filter(x => x.id_dia);
       reprocesos = filas(rep).map(r => rowToObj(r, cols(HOJA_REPROCESO, COLS_REPROCESO))).filter(x => x.id_dia);
       peras      = filas(per).map(r => rowToObj(r, cols(HOJA_PERA, COLS_PERA))).filter(x => x.id_dia);
@@ -926,26 +995,118 @@ async function conBloqueo(etiqueta, fn) {
   }
 }
 
-const finCol = cols => colLetra(cols.length - 1);
 const ahora = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
 const filaVacia = cols => rowToObj([], cols);
 
-// Cabecera del día: si la fila ya existe se sobrescribe, si no se agrega.
-async function guardarCabecera(dia) {
-  const cd = cols(HOJA_DIA, COLS_DIA);
-  const fila = [objToRow(dia, cd)];
-  const row = await sheetsFindRow(HOJA_DIA, 0, dia.id_dia);
-  if (row > 0) await sheetsUpdate(`${HOJA_DIA}!A${row}:${finCol(cd)}${row}`, fila);
-  else         await sheetsAppend(`${HOJA_DIA}!A:${finCol(cd)}`, fila);
+// ── Escribir un día completo en UNA sola operación ───────────────────────
+// Antes se hacían once llamadas seguidas (leer + borrar + agregar, por cada
+// hoja). Era lento y, peor, si una fallaba a mitad de camino el día quedaba a
+// medias: las filas viejas borradas y las nuevas sin escribir. Ahora son dos
+// llamadas — una para ubicar las filas del día y otra con todos los cambios —
+// y Google aplica la segunda entera o no aplica nada.
+
+// Un valor va como número si es número y como texto si no; vacío deja la
+// celda vacía. De paso, la fecha se guarda como TEXTO 'AAAA-MM-DD' y no como
+// fecha de Google, que era de donde salían los líos de formato.
+const celdaDe = v => {
+  if (v === '' || v === null || v === undefined) return {};
+  if (typeof v === 'number' && isFinite(v)) return { userEnteredValue: { numberValue: v } };
+  return { userEnteredValue: { stringValue: String(v) } };
+};
+const filaDe = (obj, columnas) => ({ values: objToRow(obj, columnas).map(celdaDe) });
+
+// Dónde está cada fila del día, en una sola lectura de las cuatro columnas de id
+async function ubicarDia(id) {
+  const rangos = [`${HOJA_DIA}!A:A`, `${HOJA_DETALLE}!B:B`,
+                  `${HOJA_REPROCESO}!B:B`, `${HOJA_PERA}!B:B`];
+  const d = await pedir(`${URL_HOJA}/values:batchGet?` +
+    rangos.map(r => 'ranges=' + encodeURIComponent(r)).join('&') +
+    '&valueRenderOption=UNFORMATTED_VALUE', {});
+  const indices = (vr) => {
+    const out = [];
+    (vr?.values || []).forEach((f, i) => {
+      if (i > 0 && String(f[0] ?? '').trim() === id) out.push(i);   // índice 0-based de fila
+    });
+    return out;
+  };
+  const [vd, vdet, vrep, vper] = d.valueRanges || [];
+  return { dia: indices(vd)[0], detalle: indices(vdet), reproceso: indices(vrep), pera: indices(vper) };
 }
 
-async function borrarCabecera(id) {
-  const row = await sheetsFindRow(HOJA_DIA, 0, id);
-  if (row < 1) return;
-  const sid = await obtenerSheetId(HOJA_DIA);
-  await sheetsBatchUpdate([{ deleteDimension: {
-    range: { sheetId: sid, dimension: 'ROWS', startIndex: row - 1, endIndex: row }
-  } }]);
+async function asegurarSheetIds() {
+  if (sheetIds[HOJA_DIA] === undefined) await obtenerSheetId(HOJA_DIA);
+  return sheetIds;
+}
+
+function pedirBorrado(req, hoja, indices) {
+  const sid = sheetIds[hoja];
+  [...indices].sort((a, b) => b - a).forEach(i => req.push({ deleteDimension: {
+    range: { sheetId: sid, dimension: 'ROWS', startIndex: i, endIndex: i + 1 }
+  } }));
+}
+
+function pedirAgregado(req, hoja, columnas, filas) {
+  if (!filas.length) return;
+  req.push({ appendCells: {
+    sheetId: sheetIds[hoja], fields: 'userEnteredValue',
+    rows: filas.map(f => filaDe(f, columnas))
+  } });
+}
+
+// `idPrevio` es el id con el que están guardadas las filas hoy (distinto de
+// `dia.id_dia` solo cuando se mueve el día de fecha).
+async function escribirDia(idPrevio, dia, filas, repFilas, peraFilas) {
+  await asegurarSheetIds();
+  const donde = await ubicarDia(idPrevio);
+  const cd = cols(HOJA_DIA, COLS_DIA);
+  const req = [];
+
+  pedirBorrado(req, HOJA_DETALLE,   donde.detalle);
+  pedirBorrado(req, HOJA_REPROCESO, donde.reproceso);
+  pedirBorrado(req, HOJA_PERA,      donde.pera);
+
+  if (donde.dia !== undefined) {
+    // La cabecera se sobrescribe en su sitio, para no mover el día de lugar
+    req.push({ updateCells: {
+      range: { sheetId: sheetIds[HOJA_DIA], startRowIndex: donde.dia, endRowIndex: donde.dia + 1,
+               startColumnIndex: 0, endColumnIndex: cd.length },
+      rows: [filaDe(dia, cd)], fields: 'userEnteredValue'
+    } });
+  } else {
+    pedirAgregado(req, HOJA_DIA, cd, [dia]);
+  }
+
+  pedirAgregado(req, HOJA_DETALLE,   cols(HOJA_DETALLE, COLS_DETALLE),     filas);
+  pedirAgregado(req, HOJA_REPROCESO, cols(HOJA_REPROCESO, COLS_REPROCESO), repFilas);
+  pedirAgregado(req, HOJA_PERA,      cols(HOJA_PERA, COLS_PERA),           peraFilas);
+
+  if (req.length) await pedir(`${URL_HOJA}:batchUpdate`, JSON_POST({ requests: req }));
+}
+
+// Solo el estado: no hace falta tocar las filas hijas
+async function escribirCabecera(dia) {
+  await asegurarSheetIds();
+  const donde = await ubicarDia(dia.id_dia);
+  const cd = cols(HOJA_DIA, COLS_DIA);
+  const req = donde.dia !== undefined
+    ? [{ updateCells: {
+        range: { sheetId: sheetIds[HOJA_DIA], startRowIndex: donde.dia, endRowIndex: donde.dia + 1,
+                 startColumnIndex: 0, endColumnIndex: cd.length },
+        rows: [filaDe(dia, cd)], fields: 'userEnteredValue' } }]
+    : [{ appendCells: { sheetId: sheetIds[HOJA_DIA], fields: 'userEnteredValue',
+                        rows: [filaDe(dia, cd)] } }];
+  await pedir(`${URL_HOJA}:batchUpdate`, JSON_POST({ requests: req }));
+}
+
+async function borrarTodoElDia(id) {
+  await asegurarSheetIds();
+  const donde = await ubicarDia(id);
+  const req = [];
+  pedirBorrado(req, HOJA_DETALLE,   donde.detalle);
+  pedirBorrado(req, HOJA_REPROCESO, donde.reproceso);
+  pedirBorrado(req, HOJA_PERA,      donde.pera);
+  if (donde.dia !== undefined) pedirBorrado(req, HOJA_DIA, [donde.dia]);
+  if (req.length) await pedir(`${URL_HOJA}:batchUpdate`, JSON_POST({ requests: req }));
 }
 
 // Une lo ya guardado del día con lo que hay en pantalla: así guardar la
@@ -1324,12 +1485,8 @@ async function guardarDia(desde) {
   const peraFilas = hayPera ? [pera] : [];
 
   if (hayHoja()) {
-    const ok = await conBloqueo('Guardando el día', async () => {
-      await guardarCabecera(dia);
-      await reemplazarDetalle(HOJA_DETALLE,   cols(HOJA_DETALLE, COLS_DETALLE),     id, filas);
-      await reemplazarDetalle(HOJA_REPROCESO, cols(HOJA_REPROCESO, COLS_REPROCESO), id, repFilas);
-      await reemplazarDetalle(HOJA_PERA,      cols(HOJA_PERA, COLS_PERA),           id, peraFilas);
-    });
+    const ok = await conBloqueo('Guardando el día',
+      () => escribirDia(id, dia, filas, repFilas, peraFilas));
     if (!ok) return;
   }
 
@@ -1410,7 +1567,7 @@ async function cambiarCierre(dia) {
 
   if (hayHoja()) {
     const ok = await conBloqueo(cerrando ? 'Cerrando el día' : 'Reabriendo el día',
-                                () => guardarCabecera(nuevo));
+                                () => escribirCabecera(nuevo));
     if (!ok) return;
   }
 
@@ -1463,18 +1620,11 @@ async function moverDia() {
     .map(x => ({ ...x, id_dia: nuevoId, id_pera: `${nuevoId}_P` }));
 
   if (hayHoja()) {
-    const ok = await conBloqueo('Moviendo el día', async () => {
-      // La cabecera se reescribe sobre su propia fila, con el id nuevo
-      const cd = cols(HOJA_DIA, COLS_DIA);
-      const row = await sheetsFindRow(HOJA_DIA, 0, viejoId);
-      if (row > 0) await sheetsUpdate(`${HOJA_DIA}!A${row}:${finCol(cd)}${row}`,
-                                      [objToRow(nuevoDia, cd)]);
-      else await sheetsAppend(`${HOJA_DIA}!A:${finCol(cd)}`, [objToRow(nuevoDia, cd)]);
-      // Las hijas se borran por el id viejo y se vuelven a agregar con el nuevo
-      await reemplazarDetalle(HOJA_DETALLE,   cols(HOJA_DETALLE, COLS_DETALLE),     viejoId, nuevoDetalle);
-      await reemplazarDetalle(HOJA_REPROCESO, cols(HOJA_REPROCESO, COLS_REPROCESO), viejoId, nuevoRep);
-      await reemplazarDetalle(HOJA_PERA,      cols(HOJA_PERA, COLS_PERA),           viejoId, nuevoPera);
-    });
+    // La cabecera se reescribe sobre su propia fila con el id nuevo, y las
+    // hijas se buscan por el id viejo: todo en el mismo lote, así que o queda
+    // movido entero o no se mueve nada.
+    const ok = await conBloqueo('Moviendo el día',
+      () => escribirDia(viejoId, nuevoDia, nuevoDetalle, nuevoRep, nuevoPera));
     if (!ok) return;
   }
 
@@ -1499,12 +1649,7 @@ async function borrarDia() {
   const id = dia.id_dia;
 
   if (hayHoja()) {
-    const ok = await conBloqueo('Eliminando el día', async () => {
-      await reemplazarDetalle(HOJA_DETALLE,   cols(HOJA_DETALLE, COLS_DETALLE),     id, []);
-      await reemplazarDetalle(HOJA_REPROCESO, cols(HOJA_REPROCESO, COLS_REPROCESO), id, []);
-      await reemplazarDetalle(HOJA_PERA,      cols(HOJA_PERA, COLS_PERA),           id, []);
-      await borrarCabecera(id);
-    });
+    const ok = await conBloqueo('Eliminando el día', () => borrarTodoElDia(id));
     if (!ok) return;
   }
 
