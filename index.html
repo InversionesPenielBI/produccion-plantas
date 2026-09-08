@@ -1758,11 +1758,13 @@ function abrirDia(fecha, tab) {
 //   promedio Jennos    = libras Jennos / cantinas Jennos
 //   promedio pera      = (libras de pera − mejoramiento) / cantinas cuajadas de pera
 // "Libras SED" excluye Jennos Pizza y Duro Don Maíz, igual que `J45` en el Excel.
-// "Libras SED" excluye Jennos Pizza, Duro Don Maíz y Moneda Don Maíz, igual
-// que la fórmula `J46` del Excel de febrero (suma los realizados salteándose
-// esas tres filas). Jennos además tiene su propio promedio.
+// "Libras SED" excluye Jennos Pizza y Duro Don Maíz, igual que la fórmula
+// `J46` del Excel. Jennos además tiene su propio promedio.
+// Moneda Don Maíz SÍ cuenta: en febrero, todos los días con producción de
+// Moneda la incluyen en esa fórmula (4, 12, 18 y 28); los días que no la
+// incluyen son justamente los que produjeron cero.
 const ID_JENNOS = 'JEN-2500';
-const FUERA_DE_SED = ['JEN-2500', 'DUR-2500', 'MON-3300'];
+const FUERA_DE_SED = ['JEN-2500', 'DUR-2500'];
 const esPera = id => String(id).startsWith('PERA-');
 
 // Unidades efectivas de una fila: lo cortado menos lo no conforme.
