@@ -581,8 +581,9 @@
               <input id="h-desde" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('h')"></div>
             <div class="field"><label>Hasta</label>
               <input id="h-hasta" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('h')"></div>
-            <div style="display:flex;align-items:flex-end">
+            <div style="display:flex;align-items:flex-end;gap:8px">
               <button class="btn btn-sm" onclick="limpiarFiltros('h')">Ver todo</button>
+              <button class="btn btn-sm btn-cerrar" onclick="cerrarTodosLosDias()">Cerrar todos</button>
             </div>
           </div>
           <div class="table-wrap">
@@ -623,6 +624,12 @@
               <select id="d-anio" onchange="alCambiarFiltro('d')"></select></div>
             <div class="field"><label>Mes</label>
               <select id="d-mes" onchange="alCambiarFiltro('d')"></select></div>
+            <div class="field"><label>Quincena</label>
+              <select id="d-quincena" onchange="alCambiarFiltro('d')">
+                <option value="">Todas</option>
+                <option value="Q1">Q1 (1 al 15)</option>
+                <option value="Q2">Q2 (16 en adelante)</option>
+              </select></div>
             <div class="field"><label>Desde</label>
               <input id="d-desde" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('d')"></div>
             <div class="field"><label>Hasta</label>
@@ -762,6 +769,23 @@ const DIAS_VENCIMIENTO = 29;
 
 const ESTADO = { PROGRAMADO: 'PROGRAMADO', ABIERTO: 'ABIERTO', CERRADO: 'CERRADO' };
 
+// ════════════════════════════════════════════════════════════════════════
+// USUARIOS
+// ════════════════════════════════════════════════════════════════════════
+// La lista principal está en `compartido/entorno.js` (USUARIOS_AUTORIZADOS) y
+// se comparte con Mosquera; ese archivo se REGENERA desde el index.html de
+// Mosquera, así que lo que se edite allí a mano se pierde.
+//
+// Los correos que agregues AQUÍ son solo de Honda y no se pierden nunca.
+// Copia una línea, cambia el correo y el rol:
+//   'ADMIN'   → puede reabrir días cerrados y eliminar días
+//   'USUARIO' → captura y consulta, nada más
+const USUARIOS_HONDA = {
+  // 'operario.honda@inversionespeniel.com': 'USUARIO',
+  // 'jefe.honda@inversionespeniel.com':     'ADMIN',
+};
+Object.assign(USUARIOS_AUTORIZADOS, USUARIOS_HONDA);
+
 // Único interruptor de "esto escribe de verdad". La demo trae datos de
 // ejemplo embebidos y nunca debe tocar la hoja, aunque el ID esté puesto.
 // Es una función a propósito: el bloque de la demo se define al final del
@@ -812,7 +836,6 @@ const aKg = lb => lb * KG_POR_LIBRA;
 
 // Un campo vacío se guarda VACÍO, no como cero: así se distingue "no se
 // digitó" de "se produjo cero". Para los cálculos vacío vale 0.
-const guardable = id => { const v = txt(id); return v === '' ? '' : num(v); };
 
 // ── Lectura sin formato ──────────────────────────────────────────────────
 // La API de Sheets, por defecto, devuelve los valores YA FORMATEADOS según el
@@ -1083,19 +1106,31 @@ async function escribirDia(idPrevio, dia, filas, repFilas, peraFilas) {
 }
 
 // Solo el estado: no hace falta tocar las filas hijas
-async function escribirCabecera(dia) {
+// Solo cabeceras: sirve para uno o para muchos días (cerrar todos), y en los
+// dos casos son dos llamadas — una para ubicar las filas y otra con todo.
+async function escribirCabeceras(lista) {
+  if (!lista.length) return;
   await asegurarSheetIds();
-  const donde = await ubicarDia(dia.id_dia);
   const cd = cols(HOJA_DIA, COLS_DIA);
-  const req = donde.dia !== undefined
-    ? [{ updateCells: {
-        range: { sheetId: sheetIds[HOJA_DIA], startRowIndex: donde.dia, endRowIndex: donde.dia + 1,
-                 startColumnIndex: 0, endColumnIndex: cd.length },
-        rows: [filaDe(dia, cd)], fields: 'userEnteredValue' } }]
-    : [{ appendCells: { sheetId: sheetIds[HOJA_DIA], fields: 'userEnteredValue',
-                        rows: [filaDe(dia, cd)] } }];
+  const d = await pedir(`${URL_HOJA}/values/` +
+    `${encodeURIComponent(HOJA_DIA + '!A:A')}?valueRenderOption=UNFORMATTED_VALUE`, {});
+  const filaDeId = new Map();
+  (d.values || []).forEach((f, i) => { if (i > 0) filaDeId.set(String(f[0] ?? '').trim(), i); });
+
+  const req = lista.map(dia => {
+    const i = filaDeId.get(dia.id_dia);
+    return i === undefined
+      ? { appendCells: { sheetId: sheetIds[HOJA_DIA], fields: 'userEnteredValue',
+                         rows: [filaDe(dia, cd)] } }
+      : { updateCells: {
+            range: { sheetId: sheetIds[HOJA_DIA], startRowIndex: i, endRowIndex: i + 1,
+                     startColumnIndex: 0, endColumnIndex: cd.length },
+            rows: [filaDe(dia, cd)], fields: 'userEnteredValue' } };
+  });
   await pedir(`${URL_HOJA}:batchUpdate`, JSON_POST({ requests: req }));
 }
+
+const escribirCabecera = dia => escribirCabeceras([dia]);
 
 async function borrarTodoElDia(id) {
   await asegurarSheetIds();
@@ -1378,8 +1413,8 @@ function limpiarProduccion() {
   recalcularProduccion();
 }
 
-// Los campos del día y los del queso pera, con la columna de la hoja a la
-// que va cada uno. Vacío se guarda vacío (ver `guardable`).
+// Los campos del día y los del queso pera, con la columna de la hoja a la que
+// va cada uno. En estas dos secciones un campo en blanco se guarda como 0.
 const CAMPOS_DIA = {
   cantinas_procesadas: 'f-cantinas-procesadas', cantinas_pv_venta_bocados: 'f-cantinas-pv',
   cantinas_guardadas: 'f-cantinas-guardadas', litros_crema_producida: 'f-litros-crema',
@@ -1456,7 +1491,10 @@ async function guardarDia(desde) {
   };
   dia.planta = 'HONDA';
   dia.fecha = fecha;
-  Object.entries(CAMPOS_DIA).forEach(([col, campo]) => { dia[col] = guardable(campo); });
+  // Proceso y leche + fundido: aquí un campo en blanco SÍ se guarda como 0,
+  // porque el dato existe y vale cero (a diferencia de programación,
+  // producción y reproceso, donde en blanco significa "no aplica").
+  Object.entries(CAMPOS_DIA).forEach(([col, campo]) => { dia[col] = val(campo); });
   dia.observaciones = txt('f-observaciones');
   // Un día recién programado queda PROGRAMADO; pasa a ABIERTO en cuanto hay
   // algo cortado, y CERRADO manda siempre.
@@ -1476,12 +1514,11 @@ async function guardarDia(desde) {
   });
   repFilas.forEach((r, i) => { r.id_reproceso = `${id}_R${i + 1}`; });
 
-  // 4. Queso pera: una sola fila, y solo si tiene algo
+  // 4. Queso pera: una sola fila por día, siempre, y con 0 donde no se digitó
   const pera = { ...filaVacia(COLS_PERA), id_pera: `${id}_P`, id_dia: id };
-  Object.entries(CAMPOS_PERA).forEach(([col, campo]) => { pera[col] = guardable(campo); });
+  Object.entries(CAMPOS_PERA).forEach(([col, campo]) => { pera[col] = val(campo); });
   pera.observaciones = txt('f-pera-observaciones');
-  const hayPera = COLS_PERA.slice(2).some(k => String(pera[k] ?? '') !== '');
-  const peraFilas = hayPera ? [pera] : [];
+  const peraFilas = [pera];
 
   if (hayHoja()) {
     const ok = await conBloqueo('Guardando el día',
@@ -1504,8 +1541,30 @@ async function guardarDia(desde) {
     : que.replace('.', ' — solo en memoria: falta el ID del Sheets de Honda.'),
     hayHoja() ? 'success' : 'error');
 
+  // El día ya está completo (programado y producido): se pasa al siguiente con
+  // la pantalla limpia, que es como sigue el trabajo en planta.
+  const hayProgramacion = filas.some(f => num(f.cant_programada) > 0);
+  if (hayProgramacion && hayProduccion) {
+    set('f-fecha', diaSiguiente(fecha));
+    mostrarTab('programacion');
+    toast('Listo el ' + fmtFecha(fecha) + '. Sigue el ' + fmtFecha(diaSiguiente(fecha)) + '.');
+  }
+
   refrescarDia();
   renderHistorialHonda();
+  irArribaDelDia();
+}
+
+const diaSiguiente = f => {
+  const d = new Date(f + 'T12:00:00');
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
+};
+
+// Tras guardar, volver arriba: es donde están las pestañas y los botones de
+// cerrar o cambiar la fecha del día.
+function irArribaDelDia() {
+  document.getElementById('card-dia')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ── Pestañas, estado del día y correcciones ──────────────────────────────
@@ -1584,6 +1643,28 @@ async function cambiarCierre(dia) {
 
 async function alternarCierreDia()      { return cambiarCierre(diaActual()); }
 async function cerrarDiaHistorial(id)   { return cambiarCierre(dias.find(d => d.id_dia === id)); }
+
+// Cierra de una vez todos los días que se estén viendo en el historial.
+// Va en una sola escritura, no una por día.
+async function cerrarTodosLosDias() {
+  const abiertos = diasFiltrados('h').filter(d => d.estado !== ESTADO.CERRADO);
+  if (!abiertos.length) return toast('No hay días abiertos en el filtro actual.', 'error');
+  const desde = fmtFecha(abiertos[0].fecha);
+  const hasta = fmtFecha(abiertos[abiertos.length - 1].fecha);
+  if (!confirm(`¿Cerrar ${abiertos.length} día(s), del ${desde} al ${hasta}?\n` +
+               'Un día cerrado no se puede editar hasta que un administrador lo reabra.')) return;
+
+  const nuevos = abiertos.map(d => ({ ...d, estado: ESTADO.CERRADO, ultima_edicion: ahora() }));
+  if (hayHoja()) {
+    const ok = await conBloqueo(`Cerrando ${abiertos.length} días`,
+                                () => escribirCabeceras(nuevos));
+    if (!ok) return;
+  }
+  abiertos.forEach((d, i) => Object.assign(d, nuevos[i]));
+  if (diaActual()) { set('f-estado', diaActual().estado); aplicarEstadoDia(); }
+  renderHistorialHonda();
+  toast(`${abiertos.length} día(s) cerrados.`);
+}
 
 function alternarMoverFecha() {
   const panel = document.getElementById('panel-mover');
@@ -1677,7 +1758,11 @@ function abrirDia(fecha, tab) {
 //   promedio Jennos    = libras Jennos / cantinas Jennos
 //   promedio pera      = (libras de pera − mejoramiento) / cantinas cuajadas de pera
 // "Libras SED" excluye Jennos Pizza y Duro Don Maíz, igual que `J45` en el Excel.
-const ID_JENNOS = 'JEN-2500', ID_DURO = 'DUR-2500';
+// "Libras SED" excluye Jennos Pizza, Duro Don Maíz y Moneda Don Maíz, igual
+// que la fórmula `J46` del Excel de febrero (suma los realizados salteándose
+// esas tres filas). Jennos además tiene su propio promedio.
+const ID_JENNOS = 'JEN-2500';
+const FUERA_DE_SED = ['JEN-2500', 'DUR-2500', 'MON-3300'];
 const esPera = id => String(id).startsWith('PERA-');
 
 // Unidades efectivas de una fila: lo cortado menos lo no conforme.
@@ -1693,20 +1778,24 @@ function efectivasDe(f) {
 
 function totalesDia(dia) {
   const filas = detalleDeDia(dia.id_dia);
-  let prog = 0, real = 0, fund = 0, lbJennos = 0, lbDuro = 0, lbPera = 0, progPera = 0;
-  let efecBloques = 0, efecPera = 0;
+  let prog = 0, real = 0, fund = 0, lbJennos = 0, lbFueraSed = 0, lbPera = 0, progPera = 0;
+  let bloquesReal = 0, efecBloques = 0, efecPera = 0;
   filas.forEach(f => {
     const lb = librasDe(f.id_producto, num(f.cant_realizada) + num(f.cant_fundida));
+    const lbReal = librasDe(f.id_producto, f.cant_realizada);
     const lbProg = librasDe(f.id_producto, f.cant_programada);
     const lbEfec = librasDe(f.id_producto, efectivasDe(f));
     prog += lbProg;
-    real += librasDe(f.id_producto, f.cant_realizada);
+    real += lbReal;
     fund += librasDe(f.id_producto, f.cant_fundida);
     if (esPera(f.id_producto)) { lbPera += lb; progPera += lbProg; efecPera += lbEfec; }
     else {
       efecBloques += lbEfec;
-      if (f.id_producto === ID_JENNOS) lbJennos += lb;
-      else if (f.id_producto === ID_DURO) lbDuro += lb;
+      // Los promedios van sobre lo REALIZADO, sin el fundido (fórmula J27 del
+      // Excel: `TOTAL LIBRAS` de la columna de realizados menos el reproceso).
+      bloquesReal += lbReal;
+      if (f.id_producto === ID_JENNOS) lbJennos += lbReal;
+      if (FUERA_DE_SED.includes(f.id_producto)) lbFueraSed += lbReal;
     }
   });
   const producido = real + fund;
@@ -1721,8 +1810,14 @@ function totalesDia(dia) {
                      - num(dia.cantinas_pv_venta_bocados) - num(dia.cantinas_guardadas);
   const cantinasJennos = num(dia.cant_jennos);
   const cantinasSed = cantinasDcMz - cantinasJennos;
-  const lbSed = bloques - lbJennos - lbDuro;
-  const lbPeraNeta = lbPera - num(pera?.mejoramiento_lb);
+  const lbSed = bloquesReal - lbFueraSed;
+  // El total de libras de pera incluye las unidades no conformes y el saldo de
+  // la dosificadora, igual que la fórmula `I59` del Excel y que la pantalla de
+  // captura. Sin eso el promedio del pera sale por debajo del real.
+  const lbPeraTotal = lbPera
+    + librasDe('PERA-300', num(pera?.unid_no_conformes))
+    + num(pera?.saldo_dosificadora);
+  const lbPeraNeta = lbPeraTotal - num(pera?.mejoramiento_lb);
   const litrosCrema = num(dia.litros_crema_producida);
   const litrosBatidos = num(dia.litros_batidos);
 
@@ -1743,8 +1838,8 @@ function totalesDia(dia) {
     cumplPera:  div(efecPera, progPera),
     pctRepro:   div(repro, bloques),
     // promedios en LIBRAS por cantina; el dashboard los pasa a kilos
-    promSinCrema: div(bloques - repro, cantinasDcMz),
-    promGlobal:   div(litrosCrema + bloques - repro, cantinasDcMz),
+    promSinCrema: div(bloquesReal - repro, cantinasDcMz),
+    promGlobal:   div(litrosCrema + bloquesReal - repro, cantinasDcMz),
     promSed:      div(lbSed - repro, cantinasSed),
     promJennos:   div(lbJennos, cantinasJennos),
     promPera:     div(lbPeraNeta, cantinasPera),
@@ -1774,17 +1869,23 @@ function alCambiarFiltro(pref) {
 }
 
 function limpiarFiltros(pref) {
-  ['-anio','-mes','-desde','-hasta'].forEach(x => sel(pref + x).value = '');
+  ['-anio','-mes','-quincena','-desde','-hasta'].forEach(x => {
+    const el = sel(pref + x); if (el) el.value = '';
+  });
   alCambiarFiltro(pref);
 }
 
 function diasFiltrados(pref) {
   const anio = sel(pref + '-anio').value, mes = sel(pref + '-mes').value;
   const desde = sel(pref + '-desde').value, hasta = sel(pref + '-hasta').value;
+  // La quincena solo existe en el dashboard: Q1 es del 1 al 15, Q2 del 16 en adelante
+  const quinc = sel(pref + '-quincena')?.value || '';
   return dias.filter(d => {
     const f = String(d.fecha);
+    const dia = +f.slice(8, 10);
     return (!anio  || f.slice(0, 4) === anio)
         && (!mes   || f.slice(5, 7) === mes)
+        && (!quinc || (quinc === 'Q1' ? dia <= 15 : dia >= 16))
         && (!desde || f >= desde)
         && (!hasta || f <= hasta);
   });
