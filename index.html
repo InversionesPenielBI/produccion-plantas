@@ -78,6 +78,18 @@
 .tab-panel { display: none; }
 .tab-panel.activo { display: block; }
 
+/* ── Secciones del dashboard: bloques, queso pera y leche van aparte ───── */
+.seccion-dash .card-header { align-items: baseline; }
+.seccion-nota { font-size: 11px; color: var(--text3); font-weight: 500; letter-spacing: 0; }
+@media (max-width: 700px) { .seccion-nota { display: none; } }
+
+/* ── Historial: encabezado de grupo sobre las columnas ─────────────────── */
+#tabla-historial thead tr.grupos th { font-size: 10px; letter-spacing: .08em; padding-bottom: 4px; }
+#tabla-historial thead tr.grupos th.g-bloques { color: var(--accent-mid); }
+#tabla-historial thead tr.grupos th.g-pera    { color: #8c6f9e; }
+#tabla-historial .col-pera { background: #eef0f7; }
+#tabla-historial thead .col-pera { background: transparent; }
+
 /* ── Estado del día: cada uno con su fondo, para ubicarlo de un vistazo ── */
 .est-PROGRAMADO { background: #e4edf6; color: #2e6da4; }
 .est-ABIERTO    { background: #e2f1e7; color: #2b7a45; }
@@ -589,17 +601,24 @@
           <div class="table-wrap">
             <table class="data-table" id="tabla-historial">
               <thead>
+                <tr class="grupos">
+                  <th colspan="3"></th>
+                  <th colspan="5" class="g-bloques">BLOQUES · QUESO DOBLE CREMA</th>
+                  <th colspan="3" class="g-pera col-pera">QUESO PERA</th>
+                  <th colspan="2"></th>
+                </tr>
                 <tr>
                   <th style="width:26px"></th>
                   <th>Fecha</th>
                   <th>Estado</th>
-                  <th>Bloques program.</th>
-                  <th>Bloques producidos</th>
+                  <th>Programado (lb)</th>
+                  <th>Producido (lb)</th>
                   <th>% cumpl.</th>
-                  <th>Pera producido</th>
-                  <th>% cumpl. pera</th>
                   <th>Lb reproceso</th>
                   <th>% reproceso</th>
+                  <th class="col-pera">Programadas (un)</th>
+                  <th class="col-pera">Producidas (un)</th>
+                  <th class="col-pera">% cumpl.</th>
                   <th>Litros procesados</th>
                   <th>Promedio</th>
                   <th></th>
@@ -638,37 +657,69 @@
               <button class="btn btn-sm" onclick="limpiarFiltros('d')">Ver todo</button>
             </div>
           </div>
-          <div class="metrics-grid" id="dash-metricas"></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-body">
-          <div class="grid-graficas">
-            <div class="ancho-total"><div class="card-title" style="margin-bottom:10px">Comportamiento diario de los promedios (libras por cantina)</div>
-              <div class="grafica-box"><canvas id="g-promedios"></canvas></div></div>
-            <div><div class="card-title" style="margin-bottom:10px">Producción diaria (kg)</div>
-              <div class="grafica-box"><canvas id="g-diaria"></canvas></div></div>
-            <div><div class="card-title" style="margin-bottom:10px">% de cumplimiento por día</div>
-              <div class="grafica-box"><canvas id="g-cumplimiento"></canvas></div></div>
-            <div><div class="card-title" style="margin-bottom:10px">Rendimiento diario del queso pera (libras por cantina)</div>
-              <div class="grafica-box"><canvas id="g-pera"></canvas></div></div>
-            <div><div class="card-title" style="margin-bottom:10px">Rendimiento diario de la mantequilla (libras por litro batido)</div>
-              <div class="grafica-box"><canvas id="g-mantequilla"></canvas></div></div>
-            <div class="ancho-total"><div class="card-title" style="margin-bottom:10px">Litros diarios procesados</div>
-              <div class="grafica-box"><canvas id="g-litros"></canvas></div></div>
-            <div><div class="card-title" style="margin-bottom:10px">Producción por producto (kg)</div>
-              <div class="grafica-box"><canvas id="g-producto"></canvas></div></div>
-            <div><div class="card-title" style="margin-bottom:10px">Reproceso por origen (kg)</div>
-              <div class="grafica-box"><canvas id="g-reproceso"></canvas></div></div>
-          </div>
           <div class="empty-state" id="dash-vacio" style="display:none">
             <div class="empty-state-text">No hay datos en el filtro seleccionado.</div>
           </div>
         </div>
       </div>
+
+      <!-- ─── 1. BLOQUES ─── el "QUESO DOBLE CREMA" del Excel: TODOS los
+           destinos de bloque, no solo la doble crema. El queso pera va aparte. -->
+      <div class="card seccion-dash">
+        <div class="card-header"><span class="card-title">Bloques · queso doble crema</span>
+          <span class="card-header-right seccion-nota">Todos los destinos de bloque. Cumplimiento en libras cortadas.</span>
+        </div>
+        <div class="card-body">
+          <div class="metrics-grid" id="dash-bloques"></div>
+          <div class="grid-graficas" style="margin-top:18px">
+            <div class="ancho-total"><div class="card-title" style="margin-bottom:10px">Comportamiento diario de los promedios (libras por cantina)</div>
+              <div class="grafica-box"><canvas id="g-promedios"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">Producción diaria de bloques (kg)</div>
+              <div class="grafica-box"><canvas id="g-diaria"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">% de cumplimiento por día</div>
+              <div class="grafica-box"><canvas id="g-cumplimiento"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">Producción por producto (kg)</div>
+              <div class="grafica-box"><canvas id="g-producto"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">Reproceso por origen (kg)</div>
+              <div class="grafica-box"><canvas id="g-reproceso"></canvas></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── 2. QUESO PERA ─── se mide en UNIDADES, no en libras -->
+      <div class="card seccion-dash">
+        <div class="card-header"><span class="card-title">Queso pera</span>
+          <span class="card-header-right seccion-nota">Cumplimiento en unidades.</span>
+        </div>
+        <div class="card-body">
+          <div class="metrics-grid" id="dash-pera"></div>
+          <div class="grid-graficas" style="margin-top:18px">
+            <div><div class="card-title" style="margin-bottom:10px">Rendimiento diario del queso pera (libras por cantina)</div>
+              <div class="grafica-box"><canvas id="g-pera"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">% de cumplimiento diario del queso pera</div>
+              <div class="grafica-box"><canvas id="g-cumpl-pera"></canvas></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── 3. LECHE Y CREMA ─── -->
+      <div class="card seccion-dash">
+        <div class="card-header"><span class="card-title">Leche y crema</span>
+          <span class="card-header-right seccion-nota">Descremado, crema y mantequilla.</span>
+        </div>
+        <div class="card-body">
+          <div class="metrics-grid" id="dash-leche"></div>
+          <div class="grid-graficas" style="margin-top:18px">
+            <div><div class="card-title" style="margin-bottom:10px">Rendimiento diario de la mantequilla (libras por litro batido)</div>
+              <div class="grafica-box"><canvas id="g-mantequilla"></canvas></div></div>
+            <div><div class="card-title" style="margin-bottom:10px">Litros diarios procesados</div>
+              <div class="grafica-box"><canvas id="g-litros"></canvas></div></div>
+          </div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-header collapsible" onclick="toggleSection(this)">
-          <span class="card-title">% de cumplimiento por producto</span>
+          <span class="card-title">% de cumplimiento de planta · por destino</span>
           <span class="card-header-right"><span class="card-chevron">▾</span></span>
         </div>
         <div class="card-body">
@@ -1782,6 +1833,7 @@ function totalesDia(dia) {
   const filas = detalleDeDia(dia.id_dia);
   let prog = 0, real = 0, fund = 0, lbJennos = 0, lbFueraSed = 0, lbPera = 0, progPera = 0;
   let bloquesReal = 0, efecBloques = 0, efecPera = 0;
+  let uPeraReal = 0, uPeraProg = 0;
   filas.forEach(f => {
     const lb = librasDe(f.id_producto, num(f.cant_realizada) + num(f.cant_fundida));
     const lbReal = librasDe(f.id_producto, f.cant_realizada);
@@ -1790,7 +1842,12 @@ function totalesDia(dia) {
     prog += lbProg;
     real += lbReal;
     fund += librasDe(f.id_producto, f.cant_fundida);
-    if (esPera(f.id_producto)) { lbPera += lb; progPera += lbProg; efecPera += lbEfec; }
+    if (esPera(f.id_producto)) {
+      lbPera += lb; progPera += lbProg; efecPera += lbEfec;
+      // El pera se mide en UNIDADES, no en libras: así es su % de cumplimiento
+      uPeraReal += num(f.cant_realizada);
+      uPeraProg += num(f.cant_programada);
+    }
     else {
       efecBloques += lbEfec;
       // Los promedios van sobre lo REALIZADO, sin el fundido (fórmula J27 del
@@ -1830,14 +1887,20 @@ function totalesDia(dia) {
   const div = (a, b) => b > 1e-6 ? a / b : null;
   return {
     prog, producido, repro, bloques, lbPera, lbSed, lbJennos, progBloques, progPera,
-    efecBloques, efecPera,
+    efecBloques, efecPera, uPeraReal, uPeraProg,
     cantinasProcesadas: num(dia.cantinas_procesadas),
     cantinasDcMz, cantinasPera, cantinasJennos, litrosCrema, litrosBatidos,
+    cantinasDescremadas: num(dia.cantinas_descremadas),
+    rendCrema:      div(litrosCrema, num(dia.cantinas_descremadas)),
+    pctDescremado:  div(num(dia.cantinas_descremadas), num(dia.cantinas_procesadas)),
     sinRepro: producido - repro,
-    // El queso pera va aparte de los bloques, como en el Excel, y el
-    // cumplimiento se mide con unidades EFECTIVAS: lo cortado menos lo no conforme
-    cumpl:      div(efecBloques, progBloques),
-    cumplPera:  div(efecPera, progPera),
+    // Los TRES cumplimientos del Excel, cada uno con su propia unidad:
+    //   bloques → libras cortadas (realizadas + fundidas) / libras programadas  (J36)
+    //   pera    → unidades realizadas / unidades programadas                    (I64)
+    //   planta  → unidades efectivas / programadas, por destino (tabla aparte)
+    cumpl:      div(bloques, progBloques),
+    cumplPera:  div(uPeraReal, uPeraProg),
+    cumplPlanta: div(efecBloques + efecPera, progBloques + progPera),
     pctRepro:   div(repro, bloques),
     // promedios en LIBRAS por cantina; el dashboard los pasa a kilos
     promSinCrema: div(bloquesReal - repro, cantinasDcMz),
@@ -1910,10 +1973,11 @@ function renderHistorialHonda() {
         <td class="mono">${t.progBloques ? lb1(t.progBloques) : '—'}</td>
         <td class="mono">${t.bloques ? lb1(t.bloques) : '—'}</td>
         <td class="mono">${t.cumpl != null ? (t.cumpl * 100).toFixed(1) + ' %' : '—'}</td>
-        <td class="mono">${t.lbPera ? lb1(t.lbPera) : '—'}</td>
-        <td class="mono">${t.cumplPera != null ? (t.cumplPera * 100).toFixed(1) + ' %' : '—'}</td>
         <td class="mono">${t.repro ? lb1(t.repro) : '—'}</td>
         <td class="mono">${t.pctRepro != null ? (t.pctRepro * 100).toFixed(1) + ' %' : '—'}</td>
+        <td class="mono col-pera">${t.uPeraProg ? ent(t.uPeraProg) : '—'}</td>
+        <td class="mono col-pera">${t.uPeraReal ? ent(t.uPeraReal) : '—'}</td>
+        <td class="mono col-pera">${t.cumplPera != null ? (t.cumplPera * 100).toFixed(1) + ' %' : '—'}</td>
         <td class="mono">${t.cantinasProcesadas ? ent(t.cantinasProcesadas * LITROS_POR_CANTINA) : '—'}</td>
         <td class="mono">${t.promSinCrema != null ? lb1(t.promSinCrema) : '—'}</td>
         <td onclick="event.stopPropagation()">
@@ -1927,7 +1991,7 @@ function renderHistorialHonda() {
           </div>
         </td>
       </tr>
-      <tr class="fila-detalle" id="det-${esc(d.id_dia)}" style="display:none"><td colspan="13"></td></tr>`;
+      <tr class="fila-detalle" id="det-${esc(d.id_dia)}" style="display:none"><td colspan="14"></td></tr>`;
   }).join('');
 }
 
@@ -2001,22 +2065,25 @@ function renderCumplimientoProducto(lista) {
     </tr>`;
   }).join('');
 
-  // Los totales no pueden sumar unidades de distinto gramaje: van en libras.
-  // Se parten en bloques y queso pera para que cuadren con sus dos tarjetas.
+  // Los totales van separados y cada uno en SU unidad: los bloques no se
+  // pueden sumar en unidades porque cada gramaje pesa distinto, así que van en
+  // libras; el queso pera va en unidades, que es como se mide.
   const total = pred => [...acum.entries()].filter(([id]) => pred(id))
-    .reduce((s, [, a]) => ({ lbProg: s.lbProg + a.lbProg, lbEfec: s.lbEfec + a.lbEfec }),
-            { lbProg: 0, lbEfec: 0 });
-  const fila = (titulo, tt) => `
+    .reduce((s, [, a]) => ({ lbProg: s.lbProg + a.lbProg, lbEfec: s.lbEfec + a.lbEfec,
+                             prog: s.prog + a.prog, efec: s.efec + a.efec }),
+            { lbProg: 0, lbEfec: 0, prog: 0, efec: 0 });
+  const fila = (titulo, prog, efec, fmt) => `
     <tr>
       <td colspan="2"><strong>${titulo}</strong></td>
-      <td class="mono">${lb1(tt.lbProg)}</td>
+      <td class="mono">${fmt(prog)}</td>
       <td colspan="2"></td>
-      <td class="mono efectivas">${lb1(tt.lbEfec)}</td>
-      <td class="mono"><strong>${pct(tt.lbEfec, tt.lbProg)}</strong></td>
+      <td class="mono efectivas">${fmt(efec)}</td>
+      <td class="mono"><strong>${pct(efec, prog)}</strong></td>
     </tr>`;
+  const tb = total(id => !esPera(id)), tp = total(esPera);
   document.getElementById('tfoot-cumplimiento').innerHTML =
-      fila('Total bloques (libras)', total(id => !esPera(id)))
-    + fila('Total queso pera (libras)', total(esPera));
+      fila('Total bloques (libras)', tb.lbProg, tb.lbEfec, lb1)
+    + fila('Total queso pera (unidades)', tp.prog, tp.efec, ent);
 }
 
 // ── Dashboard (en KILOS y LITROS) ────────────────────────────────────────
@@ -2046,37 +2113,60 @@ async function renderDashboardHonda() {
     const v = t.map(f).filter(x => x != null && isFinite(x));
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
   };
-  const kgProd = aKg(suma(x => x.bloques));
-  const kgProg = aKg(suma(x => x.progBloques));
-  const kgEfec = aKg(suma(x => x.efecBloques));
-  const kgPera = aKg(suma(x => x.lbPera));
-  const kgPeraProg = aKg(suma(x => x.progPera));
-  const kgPeraEfec = aKg(suma(x => x.efecPera));
-  const kgRepro = aKg(suma(x => x.repro));
+  // ── Bloques (el "queso doble crema" del Excel: todos los destinos de bloque)
+  const lbProd = suma(x => x.bloques);          // cortado = realizado + fundido
+  const lbProg = suma(x => x.progBloques);
+  const lbRepro = suma(x => x.repro);
+  // ── Queso pera, que se mide en unidades
+  const lbPera = suma(x => x.lbPera);
+  const uPera = suma(x => x.uPeraReal);
+  const uPeraProg = suma(x => x.uPeraProg);
+  // ── Leche y crema
   const litros = suma(x => x.cantinasProcesadas) * LITROS_POR_CANTINA;
+  const litrosCrema = suma(x => x.litrosCrema);
+  const cantDescr = suma(x => x.cantinasDescremadas);
+
   // Los rendimientos se leen en libras; el kilo va debajo como referencia
   const prom = f => {
     const v = media(f);
     return v == null ? ['—', ''] : [lb1(v) + ' lb', lb1(aKg(v)) + ' kg'];
   };
+  const tarjetas = (id, filas) => {
+    document.getElementById(id).innerHTML = filas.map(([l, v, sub]) => `
+      <div class="metric-card">
+        <div class="metric-label">${l}</div>
+        <div class="metric-value">${v}</div>
+        ${sub ? `<div class="metric-sub">${sub}</div>` : ''}
+      </div>`).join('');
+  };
 
-  document.getElementById('dash-metricas').innerHTML = [
-    ['Kilos producidos', ent(kgProd + kgPera), 'bloques y queso pera'],
-    ['% cumplimiento', pct(kgEfec + kgPeraEfec, kgProg + kgPeraProg), 'unidades efectivas'],
-    ['Kilos de reproceso', ent(kgRepro)],
-    ['% de reproceso', pct(kgRepro, kgProd)],
-    ['Litros procesados', ent(litros)],
+  tarjetas('dash-bloques', [
+    ['Kilos producidos', ent(aKg(lbProd)), 'realizado + fundido'],
+    ['% cumplimiento', pct(lbProd, lbProg), 'libras cortadas ÷ programadas'],
+    ['Kilos de reproceso', ent(aKg(lbRepro))],
+    ['% de reproceso', pct(lbRepro, lbProd)],
     ['Promedio global', ...prom(x => x.promGlobal)],
     ['Promedio sin crema', ...prom(x => x.promSinCrema)],
     ['Promedio SED', ...prom(x => x.promSed)],
-    ['Promedio Jennos', ...prom(x => x.promJennos)],
+    ['Promedio Jennos', ...prom(x => x.promJennos)]
+  ]);
+
+  tarjetas('dash-pera', [
+    ['Kilos producidos', ent(aKg(lbPera))],
+    ['Unidades producidas', ent(uPera), 'programadas: ' + ent(uPeraProg)],
+    ['% cumplimiento', pct(uPera, uPeraProg), 'unidades ÷ programadas'],
     ['Promedio queso pera', ...prom(x => x.promPera)]
-  ].map(([l, v, sub]) => `
-    <div class="metric-card">
-      <div class="metric-label">${l}</div>
-      <div class="metric-value">${v}</div>
-      ${sub ? `<div class="metric-sub">${sub}</div>` : ''}
-    </div>`).join('');
+  ]);
+
+  tarjetas('dash-leche', [
+    ['Litros procesados', ent(litros)],
+    ['Litros de crema', ent(litrosCrema)],
+    ['% de descremado', pct(cantDescr, suma(x => x.cantinasProcesadas))],
+    ['Rendimiento de crema', cantDescr ? lb1(litrosCrema / cantDescr) : '—', 'litros por cantina'],
+    ['Rendimiento mantequilla',
+      media(x => x.rendMantequilla) == null ? '—' : lb1(media(x => x.rendMantequilla)),
+      'libras por litro batido']
+  ]);
 
   renderCumplimientoProducto(lista);
 
@@ -2109,19 +2199,24 @@ async function renderDashboardHonda() {
   ]}, options: ejes() });
 
   pinta('g-diaria', { type: 'bar', data: { labels: etiquetas, datasets: [
-    { label: 'Programado (bloques)', data: t.map(x => aKg(x.progBloques)), backgroundColor: GRIS, borderRadius: 4 },
-    { label: 'Producido (bloques)', data: t.map(x => aKg(x.bloques)), backgroundColor: AZUL, borderRadius: 4 },
-    { label: 'Queso pera', data: t.map(x => aKg(x.lbPera)), backgroundColor: MORADO, borderRadius: 4 }
+    { label: 'Programado', data: t.map(x => aKg(x.progBloques)), backgroundColor: GRIS, borderRadius: 4 },
+    { label: 'Producido', data: t.map(x => aKg(x.bloques)), backgroundColor: AZUL, borderRadius: 4 }
   ]}, options: ejes() });
 
+  const ejePct = () => ({ ...ejes(), scales: { y: { ticks: { callback: v => v + ' %' } } },
+                          plugins: { legend: { display: false } } });
+
   pinta('g-cumplimiento', { type: 'line', data: { labels: etiquetas, datasets: [
-    linea('Bloques', t.map(x => x.cumpl != null ? x.cumpl * 100 : null), AZUL),
-    linea('Queso pera', t.map(x => x.cumplPera != null ? x.cumplPera * 100 : null), MORADO)
-  ]}, options: { ...ejes(), scales: { y: { ticks: { callback: v => v + ' %' } } } } });
+    linea('Bloques', t.map(x => x.cumpl != null ? x.cumpl * 100 : null), AZUL)
+  ]}, options: ejePct() });
 
   pinta('g-pera', { type: 'line', data: { labels: etiquetas, datasets: [
     linea('Rendimiento pera', serie(x => x.promPera), VERDE)
   ]}, options: { ...ejes(), plugins: { legend: { display: false } } } });
+
+  pinta('g-cumpl-pera', { type: 'line', data: { labels: etiquetas, datasets: [
+    linea('Cumplimiento pera', t.map(x => x.cumplPera != null ? x.cumplPera * 100 : null), MORADO)
+  ]}, options: ejePct() });
 
   pinta('g-mantequilla', { type: 'line', data: { labels: etiquetas, datasets: [
     linea('Rendimiento mantequilla', serie(x => x.rendMantequilla), AMARILLO)
@@ -2136,6 +2231,7 @@ async function renderDashboardHonda() {
 
   const porProducto = {};
   lista.forEach(d => detalleDeDia(d.id_dia).forEach(f => {
+    if (esPera(f.id_producto)) return;          // el pera tiene su propia sección
     const kg = aKg(librasDe(f.id_producto, num(f.cant_realizada) + num(f.cant_fundida)));
     if (kg) porProducto[nombreDe(f.id_producto)] = (porProducto[nombreDe(f.id_producto)] || 0) + kg;
   }));
