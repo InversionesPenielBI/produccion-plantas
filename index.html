@@ -78,6 +78,66 @@
 .tab-panel { display: none; }
 .tab-panel.activo { display: block; }
 
+/* ── Bloque que acompaña al bajar: barra de desplazamiento + encabezado ──
+   Portado tal cual del módulo de Mosquera. La tabla sigue creciendo con la
+   página; lo que se queda arriba es este bloque OPACO y de una sola pieza,
+   con una copia del encabezado sincronizada en horizontal. Al ser opaco, las
+   filas pasan por debajo y no se ven a través de la barra. */
+.view { --pad-vista: 34px; }
+
+.scroll-espejo {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--bg);
+  padding: 4px 4px 0;
+  margin: 0 0 6px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.scroll-espejo.pegada { box-shadow: 0 12px 16px -12px rgba(27,53,74,.5); }
+.scroll-espejo.pegada::before {
+  content: ''; position: absolute; inset-inline: 0; bottom: 100%;
+  block-size: var(--pad-vista, 34px);
+  background: var(--bg);
+}
+.espejo-barra {
+  overflow-x: auto; overflow-y: hidden;
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: var(--nm-in-xs);
+  scroll-behavior: auto;
+}
+.espejo-barra > div { block-size: 1px; }
+
+/* La copia del encabezado va en posición absoluta: así el bloque no crece en
+   el flujo y la tabla no se mueve cuando aparece o desaparece. */
+.espejo-head {
+  position: absolute; top: 100%; inset-inline: 4px;
+  overflow: hidden; display: none;
+  background: var(--bg);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.scroll-espejo.con-encabezado .espejo-head { display: block; }
+.espejo-head table { inline-size: auto; table-layout: fixed; }
+.espejo-head th { position: static !important; }
+
+/* Más gruesa y con más contraste, en la tabla y en su espejo */
+.espejo-barra::-webkit-scrollbar,
+.table-wrap::-webkit-scrollbar { height: 16px; width: 16px; }
+.espejo-barra::-webkit-scrollbar-thumb,
+.table-wrap::-webkit-scrollbar-thumb {
+  background: var(--accent-mid);
+  border: 4px solid var(--bg);
+  border-radius: var(--pill);
+  box-shadow: none;
+}
+.espejo-barra::-webkit-scrollbar-thumb:hover,
+.table-wrap::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+.espejo-barra, .table-wrap { scrollbar-width: auto; scrollbar-color: var(--accent-mid) var(--bg); }
+
+/* Un elemento sticky se ancla al ancestro que recorta, y `.card-body` del
+   entorno trae `overflow: hidden`: sin esto el bloque se iba con la tarjeta
+   en vez de quedarse arriba. */
+#view-historial .card-body, #view-dashboard .card-body { overflow: visible; }
+
 /* ── Secciones del dashboard: bloques, queso pera y leche van aparte ───── */
 .seccion-dash .card-header { align-items: baseline; }
 .seccion-nota { font-size: 11px; color: var(--text3); font-weight: 500; letter-spacing: 0; }
@@ -589,6 +649,14 @@
               <select id="h-anio" onchange="alCambiarFiltro('h')"></select></div>
             <div class="field"><label>Mes</label>
               <select id="h-mes" onchange="alCambiarFiltro('h')"></select></div>
+            <div class="field"><label>Quincena</label>
+              <select id="h-quincena" onchange="alCambiarFiltro('h')">
+                <option value="">Todas</option>
+                <option value="Q1">Q1 (1 al 15)</option>
+                <option value="Q2">Q2 (16 en adelante)</option>
+              </select></div>
+            <div class="field"><label>Semana juliana</label>
+              <select id="h-semana" onchange="alCambiarFiltro('h')"></select></div>
             <div class="field"><label>Desde</label>
               <input id="h-desde" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('h')"></div>
             <div class="field"><label>Hasta</label>
@@ -649,6 +717,15 @@
                 <option value="Q1">Q1 (1 al 15)</option>
                 <option value="Q2">Q2 (16 en adelante)</option>
               </select></div>
+            <div class="field"><label>Semana juliana</label>
+              <select id="d-semana" onchange="alCambiarFiltro('d')"></select></div>
+            <div class="field"><label>Ver las gráficas por</label>
+              <select id="d-agrupar" onchange="alCambiarFiltro('d')">
+                <option value="dia">Día</option>
+                <option value="semana">Semana juliana</option>
+                <option value="quincena">Quincena</option>
+                <option value="mes">Mes</option>
+              </select></div>
             <div class="field"><label>Desde</label>
               <input id="d-desde" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('d')"></div>
             <div class="field"><label>Hasta</label>
@@ -672,11 +749,11 @@
         <div class="card-body">
           <div class="metrics-grid" id="dash-bloques"></div>
           <div class="grid-graficas" style="margin-top:18px">
-            <div class="ancho-total"><div class="card-title" style="margin-bottom:10px">Comportamiento diario de los promedios (libras por cantina)</div>
+            <div class="ancho-total"><div class="card-title" style="margin-bottom:10px">Comportamiento de los promedios (libras por cantina)</div>
               <div class="grafica-box"><canvas id="g-promedios"></canvas></div></div>
-            <div><div class="card-title" style="margin-bottom:10px">Producción diaria de bloques (kg)</div>
+            <div><div class="card-title" style="margin-bottom:10px">Producción de bloques (kg)</div>
               <div class="grafica-box"><canvas id="g-diaria"></canvas></div></div>
-            <div><div class="card-title" style="margin-bottom:10px">% de cumplimiento por día</div>
+            <div><div class="card-title" style="margin-bottom:10px">% de cumplimiento</div>
               <div class="grafica-box"><canvas id="g-cumplimiento"></canvas></div></div>
             <div><div class="card-title" style="margin-bottom:10px">Producción por producto (kg)</div>
               <div class="grafica-box"><canvas id="g-producto"></canvas></div></div>
@@ -694,10 +771,12 @@
         <div class="card-body">
           <div class="metrics-grid" id="dash-pera"></div>
           <div class="grid-graficas" style="margin-top:18px">
-            <div><div class="card-title" style="margin-bottom:10px">Rendimiento diario del queso pera (libras por cantina)</div>
+            <div><div class="card-title" style="margin-bottom:10px">Rendimiento del queso pera (libras por cantina)</div>
               <div class="grafica-box"><canvas id="g-pera"></canvas></div></div>
-            <div><div class="card-title" style="margin-bottom:10px">% de cumplimiento diario del queso pera</div>
+            <div><div class="card-title" style="margin-bottom:10px">% de cumplimiento del queso pera</div>
               <div class="grafica-box"><canvas id="g-cumpl-pera"></canvas></div></div>
+            <div class="ancho-total"><div class="card-title" style="margin-bottom:10px">Queso pera: unidades programadas contra realizadas</div>
+              <div class="grafica-box"><canvas id="g-pera-unidades"></canvas></div></div>
           </div>
         </div>
       </div>
@@ -710,9 +789,9 @@
         <div class="card-body">
           <div class="metrics-grid" id="dash-leche"></div>
           <div class="grid-graficas" style="margin-top:18px">
-            <div><div class="card-title" style="margin-bottom:10px">Rendimiento diario de la mantequilla (libras por litro batido)</div>
+            <div><div class="card-title" style="margin-bottom:10px">Rendimiento de la mantequilla y de la crema</div>
               <div class="grafica-box"><canvas id="g-mantequilla"></canvas></div></div>
-            <div><div class="card-title" style="margin-bottom:10px">Litros diarios procesados</div>
+            <div><div class="card-title" style="margin-bottom:10px">Litros procesados</div>
               <div class="grafica-box"><canvas id="g-litros"></canvas></div></div>
           </div>
         </div>
@@ -774,6 +853,8 @@ window.APP = {
     if (v === 'dia')       refrescarDia();
     if (v === 'historial') renderHistorialHonda();
     if (v === 'dashboard') renderDashboardHonda();
+    // Las tablas ocultas no tienen ancho: el espejo se recalcula al mostrarlas
+    espejarScrollTodos('#view-' + v + ' .table-wrap');
   }
 };
 </script>
@@ -1888,6 +1969,8 @@ function totalesDia(dia) {
   return {
     prog, producido, repro, bloques, lbPera, lbSed, lbJennos, progBloques, progPera,
     efecBloques, efecPera, uPeraReal, uPeraProg,
+    bloquesReal, lbPeraNeta, cantinasSed,
+    librasMantequilla: num(dia.libras_mantequilla),
     cantinasProcesadas: num(dia.cantinas_procesadas),
     cantinasDcMz, cantinasPera, cantinasJennos, litrosCrema, litrosBatidos,
     cantinasDescremadas: num(dia.cantinas_descremadas),
@@ -1923,10 +2006,88 @@ const opciones = (el, lista, todos) => {
   if (lista.some(o => String(o.v) === antes)) el.value = antes;
 };
 
+// ── Periodos: semana juliana, quincena y mes ─────────────────────────────
+// La semana juliana es la semana ISO del año: empieza el lunes y la semana 1
+// es la que contiene el primer jueves. Es la misma numeración del Excel.
+function semanaJuliana(fechaISO) {
+  const d = new Date(fechaISO + 'T12:00:00');
+  const j = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  j.setUTCDate(j.getUTCDate() + 4 - (j.getUTCDay() || 7));   // al jueves de su semana
+  const enero1 = new Date(Date.UTC(j.getUTCFullYear(), 0, 1));
+  return { anio: j.getUTCFullYear(),
+           semana: Math.ceil(((j - enero1) / 86400000 + 1) / 7) };
+}
+const quincenaDe = fechaISO => +String(fechaISO).slice(8, 10) <= 15 ? 'Q1' : 'Q2';
+const MES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+// Agrupa los días como lo hace una jerarquía de tabla dinámica: año › mes ›
+// quincena › semana. Por eso una semana partida entre dos quincenas aparece
+// dos veces, igual que en el ejemplo de Power BI.
+function agruparDias(lista, modo) {
+  if (modo === 'dia' || !modo) {
+    return lista.map(d => ({ clave: d.fecha, etiqueta: [fmtFecha(d.fecha).slice(0, 5)], dias: [d] }));
+  }
+  const grupos = new Map();
+  lista.forEach(d => {
+    const f = String(d.fecha);
+    const anio = f.slice(0, 4), mes = +f.slice(5, 7), q = quincenaDe(f);
+    const mesCorto = MES_CORTO[mes - 1];
+    let clave, etiqueta;
+    if (modo === 'mes') {
+      clave = `${anio}-${f.slice(5, 7)}`;
+      etiqueta = [mesCorto, anio];
+    } else if (modo === 'quincena') {
+      clave = `${anio}-${f.slice(5, 7)}-${q}`;
+      etiqueta = [q, `${mesCorto} ${anio}`];
+    } else {                                   // semana juliana
+      const sj = semanaJuliana(f);
+      clave = `${anio}-${f.slice(5, 7)}-${q}-S${sj.semana}`;
+      etiqueta = ['S' + sj.semana, `${q} · ${mesCorto}`];
+    }
+    if (!grupos.has(clave)) grupos.set(clave, { clave, etiqueta, dias: [] });
+    grupos.get(clave).dias.push(d);
+  });
+  return [...grupos.values()].sort((a, b) => a.clave.localeCompare(b.clave));
+}
+
+// Suma los componentes crudos de varios días y VUELVE A CALCULAR las razones.
+// Promediar promedios diarios daría otro número; el Excel divide totales
+// entre totales (hoja PROMEDIOS, G3 = D3/B3), y así queda igual.
+const SUMABLES = ['prog','producido','repro','bloques','bloquesReal','lbPera','lbPeraNeta',
+  'lbSed','lbJennos','progBloques','progPera','efecBloques','efecPera','uPeraReal','uPeraProg',
+  'cantinasProcesadas','cantinasDcMz','cantinasPera','cantinasJennos','cantinasSed',
+  'cantinasDescremadas','litrosCrema','litrosBatidos','librasMantequilla'];
+
+function totalesDe(dias) {
+  const ts = dias.map(totalesDia);
+  const r = {};
+  SUMABLES.forEach(k => { r[k] = ts.reduce((a, x) => a + (num(x[k]) || 0), 0); });
+  const div = (a, b) => b > 1e-6 ? a / b : null;
+  r.dias = dias.length;
+  r.cumpl        = div(r.bloques, r.progBloques);
+  r.cumplPera    = div(r.uPeraReal, r.uPeraProg);
+  r.pctRepro     = div(r.repro, r.bloques);
+  r.promSinCrema = div(r.bloquesReal - r.repro, r.cantinasDcMz);
+  r.promGlobal   = div(r.litrosCrema + r.bloquesReal - r.repro, r.cantinasDcMz);
+  r.promSed      = div(r.lbSed - r.repro, r.cantinasSed);
+  r.promJennos   = div(r.lbJennos, r.cantinasJennos);
+  r.promPera     = div(r.lbPeraNeta, r.cantinasPera);
+  r.rendMantequilla = div(r.librasMantequilla, r.litrosBatidos);
+  r.rendCrema       = div(r.litrosCrema, r.cantinasDescremadas);
+  r.pctDescremado   = div(r.cantinasDescremadas, r.cantinasProcesadas);
+  return r;
+}
+
 function poblarFiltros(pref) {
   const anios = [...new Set(dias.map(d => String(d.fecha).slice(0, 4)))].filter(Boolean).sort();
   opciones(sel(pref + '-anio'), anios.map(a => ({ v: a, t: a })), 'Todos');
   opciones(sel(pref + '-mes'), MESES.map((m, i) => ({ v: String(i + 1).padStart(2, '0'), t: m })), 'Todos');
+  const sem = sel(pref + '-semana');
+  if (sem) {
+    const semanas = [...new Set(dias.map(d => semanaJuliana(d.fecha).semana))]
+      .sort((a, b) => a - b);
+    opciones(sem, semanas.map(n => ({ v: String(n), t: 'Semana ' + n })), 'Todas');
+  }
 }
 
 function alCambiarFiltro(pref) {
@@ -1934,7 +2095,7 @@ function alCambiarFiltro(pref) {
 }
 
 function limpiarFiltros(pref) {
-  ['-anio','-mes','-quincena','-desde','-hasta'].forEach(x => {
+  ['-anio','-mes','-quincena','-semana','-desde','-hasta'].forEach(x => {
     const el = sel(pref + x); if (el) el.value = '';
   });
   alCambiarFiltro(pref);
@@ -1945,16 +2106,127 @@ function diasFiltrados(pref) {
   const desde = sel(pref + '-desde').value, hasta = sel(pref + '-hasta').value;
   // La quincena solo existe en el dashboard: Q1 es del 1 al 15, Q2 del 16 en adelante
   const quinc = sel(pref + '-quincena')?.value || '';
+  const sem   = sel(pref + '-semana')?.value || '';
   return dias.filter(d => {
     const f = String(d.fecha);
     const dia = +f.slice(8, 10);
     return (!anio  || f.slice(0, 4) === anio)
         && (!mes   || f.slice(5, 7) === mes)
         && (!quinc || (quinc === 'Q1' ? dia <= 15 : dia >= 16))
+        && (!sem   || String(semanaJuliana(f).semana) === sem)
         && (!desde || f >= desde)
         && (!hasta || f <= hasta);
   });
 }
+
+// ── Barra de desplazamiento y encabezado que acompañan al bajar ──────────
+// Portado del módulo de Mosquera. Única diferencia: aquí el historial tiene
+// DOS filas de encabezado (el grupo y las columnas), así que los anchos se
+// toman de la ÚLTIMA fila, que es la que manda sobre las celdas.
+function espejarScroll(wrap) {
+  if (!wrap || !wrap.parentNode) return;
+  let esp = wrap.previousElementSibling;
+  if (!esp || !esp.classList || !esp.classList.contains('scroll-espejo')) {
+    esp = document.createElement('div');
+    esp.className = 'scroll-espejo';
+    esp.innerHTML = '<div class="espejo-barra"><div></div></div><div class="espejo-head"></div>';
+    wrap.parentNode.insertBefore(esp, wrap);
+    esp._barra = esp.querySelector('.espejo-barra');
+    esp._cab   = esp.querySelector('.espejo-head');
+    esp._wrap  = wrap;
+
+    // Una sola escritura por cuadro y solo si la posición cambió: así no se
+    // pelea con el desplazamiento por inercia.
+    let cuadro = 0;
+    const sincronizar = origen => {
+      if (cuadro) return;
+      cuadro = requestAnimationFrame(() => {
+        cuadro = 0;
+        const x = Math.round(origen.scrollLeft);
+        if (Math.round(wrap.scrollLeft)       !== x) wrap.scrollLeft       = x;
+        if (Math.round(esp._barra.scrollLeft) !== x) esp._barra.scrollLeft = x;
+        if (Math.round(esp._cab.scrollLeft)   !== x) esp._cab.scrollLeft   = x;
+      });
+    };
+    esp._barra.addEventListener('scroll', () => sincronizar(esp._barra), { passive: true });
+    wrap.addEventListener('scroll',       () => sincronizar(wrap),       { passive: true });
+    vigilarEncabezado(esp.closest('.view'));
+  }
+
+  const ancho = wrap.scrollWidth;
+  if (!wrap.clientWidth) { esp.style.display = 'none'; return; }
+  esp._barra.firstElementChild.style.width = ancho + 'px';
+  esp.style.display = ancho > wrap.clientWidth + 1 ? '' : 'none';
+  // Si el navegador usa barras superpuestas no ocupan alto: se reserva a mano
+  esp._barra.style.blockSize = '';
+  if (esp._barra.offsetHeight - esp._barra.clientHeight === 0) esp._barra.style.blockSize = '14px';
+
+  clonarEncabezado(esp);
+  esp._barra.scrollLeft = wrap.scrollLeft;
+  esp._cab.scrollLeft   = wrap.scrollLeft;
+  actualizarPegada(esp);
+}
+
+function clonarEncabezado(esp) {
+  const tabla = esp._wrap.querySelector('table.data-table');
+  if (!tabla || !tabla.tHead) { esp._cab.innerHTML = ''; return; }
+
+  const copia = document.createElement('table');
+  copia.className = tabla.className;
+  copia.style.tableLayout = 'fixed';
+  copia.style.width = tabla.getBoundingClientRect().width + 'px';
+
+  // Los anchos se fijan con un <colgroup>, no celda por celda: la primera fila
+  // del encabezado lleva colspan (el grupo BLOQUES / QUESO PERA) y con
+  // table-layout:fixed sería ella la que repartiría el ancho, descuadrando la
+  // copia. La referencia es la ÚLTIMA fila, que es la de las columnas reales.
+  const ultima = f => f.rows[f.rows.length - 1];
+  const reales = ultima(tabla.tHead).cells;
+  const grupo = document.createElement('colgroup');
+  for (const celda of reales) {
+    const col = document.createElement('col');
+    col.style.width = celda.getBoundingClientRect().width + 'px';
+    grupo.appendChild(col);
+  }
+  copia.appendChild(grupo);
+  copia.appendChild(tabla.tHead.cloneNode(true));
+  esp._cab.innerHTML = '';
+  esp._cab.appendChild(copia);
+}
+
+function actualizarPegada(esp) {
+  const vista = esp.closest('.view');
+  const tabla = esp._wrap && esp._wrap.querySelector('table.data-table');
+  if (!vista || !tabla || esp.style.display === 'none') return;
+  const cs = getComputedStyle(vista);
+  const tope = vista.getBoundingClientRect().top + parseFloat(cs.paddingTop || 0);
+  const altoBarra = esp._barra.offsetHeight;
+  const rTabla = tabla.getBoundingClientRect();
+  const rCabeza = tabla.tHead ? tabla.tHead.getBoundingClientRect() : rTabla;
+  const enElTope = esp.getBoundingClientRect().top <= tope + 1;
+  const mostrar = enElTope && rCabeza.bottom < tope + altoBarra + 4
+                  && rTabla.bottom > tope + altoBarra + 50;
+  esp.classList.toggle('con-encabezado', mostrar);
+  esp.classList.toggle('pegada', enElTope);
+}
+
+function vigilarEncabezado(vista) {
+  if (!vista || vista._vigilada) return;
+  vista._vigilada = true;
+  let cuadro = 0;
+  vista.addEventListener('scroll', () => {
+    if (cuadro) return;
+    cuadro = requestAnimationFrame(() => {
+      cuadro = 0;
+      vista.querySelectorAll('.scroll-espejo').forEach(actualizarPegada);
+    });
+  }, { passive: true });
+}
+
+function espejarScrollTodos(selector) {
+  requestAnimationFrame(() => document.querySelectorAll(selector).forEach(espejarScroll));
+}
+window.addEventListener('resize', () => espejarScrollTodos('.table-wrap'));
 
 // ── Historial ────────────────────────────────────────────────────────────
 function renderHistorialHonda() {
@@ -1993,6 +2265,7 @@ function renderHistorialHonda() {
       </tr>
       <tr class="fila-detalle" id="det-${esc(d.id_dia)}" style="display:none"><td colspan="14"></td></tr>`;
   }).join('');
+  espejarScrollTodos('#view-historial .table-wrap');
 }
 
 function alternarDetalleDia(id, tr) {
@@ -2000,6 +2273,7 @@ function alternarDetalleDia(id, tr) {
   const abierta = fila.style.display !== 'none';
   fila.style.display = abierta ? 'none' : '';
   tr.classList.toggle('abierta', !abierta);
+  espejarScrollTodos('#view-historial .table-wrap');
   if (abierta) return;
   const filas = detalleDeDia(id).filter(f => num(f.cant_realizada) || num(f.cant_programada));
   const rep = reprocesos.filter(r => r.id_dia === id);
@@ -2084,6 +2358,7 @@ function renderCumplimientoProducto(lista) {
   document.getElementById('tfoot-cumplimiento').innerHTML =
       fila('Total bloques (libras)', tb.lbProg, tb.lbEfec, lb1)
     + fila('Total queso pera (unidades)', tp.prog, tp.efec, ent);
+  espejarScrollTodos('#view-dashboard .table-wrap');
 }
 
 // ── Dashboard (en KILOS y LITROS) ────────────────────────────────────────
@@ -2107,30 +2382,13 @@ async function renderDashboardHonda() {
   const lista = diasFiltrados('d');
   document.getElementById('dash-vacio').style.display = lista.length ? 'none' : '';
 
-  const t = lista.map(totalesDia);
-  const suma = f => t.reduce((s, x) => s + (f(x) || 0), 0);
-  const media = f => {
-    const v = t.map(f).filter(x => x != null && isFinite(x));
-    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
-  };
-  // ── Bloques (el "queso doble crema" del Excel: todos los destinos de bloque)
-  const lbProd = suma(x => x.bloques);          // cortado = realizado + fundido
-  const lbProg = suma(x => x.progBloques);
-  const lbRepro = suma(x => x.repro);
-  // ── Queso pera, que se mide en unidades
-  const lbPera = suma(x => x.lbPera);
-  const uPera = suma(x => x.uPeraReal);
-  const uPeraProg = suma(x => x.uPeraProg);
-  // ── Leche y crema
-  const litros = suma(x => x.cantinasProcesadas) * LITROS_POR_CANTINA;
-  const litrosCrema = suma(x => x.litrosCrema);
-  const cantDescr = suma(x => x.cantinasDescremadas);
+  // Un solo total de todo el periodo: las razones se recalculan sobre los
+  // totales, no promediando promedios diarios (igual que la hoja PROMEDIOS).
+  const T = totalesDe(lista);
+  const litros = T.cantinasProcesadas * LITROS_POR_CANTINA;
 
   // Los rendimientos se leen en libras; el kilo va debajo como referencia
-  const prom = f => {
-    const v = media(f);
-    return v == null ? ['—', ''] : [lb1(v) + ' lb', lb1(aKg(v)) + ' kg'];
-  };
+  const prom = v => v == null ? ['—', ''] : [lb1(v) + ' lb', lb1(aKg(v)) + ' kg'];
   const tarjetas = (id, filas) => {
     document.getElementById(id).innerHTML = filas.map(([l, v, sub]) => `
       <div class="metric-card">
@@ -2141,30 +2399,29 @@ async function renderDashboardHonda() {
   };
 
   tarjetas('dash-bloques', [
-    ['Kilos producidos', ent(aKg(lbProd)), 'realizado + fundido'],
-    ['% cumplimiento', pct(lbProd, lbProg), 'libras cortadas ÷ programadas'],
-    ['Kilos de reproceso', ent(aKg(lbRepro))],
-    ['% de reproceso', pct(lbRepro, lbProd)],
-    ['Promedio global', ...prom(x => x.promGlobal)],
-    ['Promedio sin crema', ...prom(x => x.promSinCrema)],
-    ['Promedio SED', ...prom(x => x.promSed)],
-    ['Promedio Jennos', ...prom(x => x.promJennos)]
+    ['Kilos producidos', ent(aKg(T.bloques)), 'realizado + fundido'],
+    ['% cumplimiento', pct(T.bloques, T.progBloques), 'libras cortadas ÷ programadas'],
+    ['Kilos de reproceso', ent(aKg(T.repro))],
+    ['% de reproceso', pct(T.repro, T.bloques)],
+    ['Promedio global', ...prom(T.promGlobal)],
+    ['Promedio sin crema', ...prom(T.promSinCrema)],
+    ['Promedio SED', ...prom(T.promSed)],
+    ['Promedio Jennos', ...prom(T.promJennos)]
   ]);
 
   tarjetas('dash-pera', [
-    ['Kilos producidos', ent(aKg(lbPera))],
-    ['Unidades producidas', ent(uPera), 'programadas: ' + ent(uPeraProg)],
-    ['% cumplimiento', pct(uPera, uPeraProg), 'unidades ÷ programadas'],
-    ['Promedio queso pera', ...prom(x => x.promPera)]
+    ['Kilos producidos', ent(aKg(T.lbPera))],
+    ['Unidades producidas', ent(T.uPeraReal), 'programadas: ' + ent(T.uPeraProg)],
+    ['% cumplimiento', pct(T.uPeraReal, T.uPeraProg), 'unidades ÷ programadas'],
+    ['Promedio queso pera', ...prom(T.promPera)]
   ]);
 
   tarjetas('dash-leche', [
     ['Litros procesados', ent(litros)],
-    ['Litros de crema', ent(litrosCrema)],
-    ['% de descremado', pct(cantDescr, suma(x => x.cantinasProcesadas))],
-    ['Rendimiento de crema', cantDescr ? lb1(litrosCrema / cantDescr) : '—', 'litros por cantina'],
-    ['Rendimiento mantequilla',
-      media(x => x.rendMantequilla) == null ? '—' : lb1(media(x => x.rendMantequilla)),
+    ['Litros de crema', ent(T.litrosCrema)],
+    ['% de descremado', pct(T.cantinasDescremadas, T.cantinasProcesadas)],
+    ['Rendimiento de crema', T.rendCrema == null ? '—' : lb1(T.rendCrema), 'litros por cantina'],
+    ['Rendimiento mantequilla', T.rendMantequilla == null ? '—' : lb1(T.rendMantequilla),
       'libras por litro batido']
   ]);
 
@@ -2175,7 +2432,12 @@ async function renderDashboardHonda() {
     return toast('No se pudieron cargar las gráficas: el navegador no alcanza el CDN.', 'error');
   }
 
-  const etiquetas = lista.map(d => fmtFecha(d.fecha).slice(0, 5));
+  // Las gráficas con fecha en el eje X se agrupan según el selector:
+  // día, semana juliana, quincena o mes. Las etiquetas van en dos renglones
+  // (semana arriba, quincena y mes abajo), como la jerarquía de Power BI.
+  const grupos = agruparDias(lista, sel('d-agrupar')?.value || 'dia');
+  const etiquetas = grupos.map(g => g.etiqueta);
+  const t = grupos.map(g => totalesDe(g.dias));
   const AZUL = '#3d6c94', VERDE = '#5b9279', AMARILLO = '#c9a227',
         ROJO = '#c2544d', MORADO = '#8c6f9e', GRIS = '#9aa7b4';
   // Una función, no un objeto: Chart.js escribe dentro de las opciones que
@@ -2218,9 +2480,15 @@ async function renderDashboardHonda() {
     linea('Cumplimiento pera', t.map(x => x.cumplPera != null ? x.cumplPera * 100 : null), MORADO)
   ]}, options: ejePct() });
 
+  pinta('g-pera-unidades', { type: 'bar', data: { labels: etiquetas, datasets: [
+    { label: 'Programadas', data: t.map(x => x.uPeraProg), backgroundColor: GRIS, borderRadius: 4 },
+    { label: 'Realizadas', data: t.map(x => x.uPeraReal), backgroundColor: MORADO, borderRadius: 4 }
+  ]}, options: ejes() });
+
   pinta('g-mantequilla', { type: 'line', data: { labels: etiquetas, datasets: [
-    linea('Rendimiento mantequilla', serie(x => x.rendMantequilla), AMARILLO)
-  ]}, options: { ...ejes(), plugins: { legend: { display: false } } } });
+    linea('Mantequilla (lb por litro batido)', serie(x => x.rendMantequilla), AMARILLO),
+    linea('Crema (litros por cantina descremada)', serie(x => x.rendCrema), AZUL)
+  ]}, options: ejes() });
 
   const aLitros = f => t.map(x => (f(x) || 0) * LITROS_POR_CANTINA);
   pinta('g-litros', { type: 'line', data: { labels: etiquetas, datasets: [
