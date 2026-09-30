@@ -59,6 +59,14 @@
 .metric-label { font-size: 10px; letter-spacing: .07em; margin-bottom: 4px; }
 .metric-value { font-size: 27px; line-height: 1.1; }
 
+/* Las seis del registro del día van en una sola fila */
+#view-dia .metrics-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+#view-dia .metric-card { padding: 12px 13px; }
+#view-dia .metric-label { font-size: 9.5px; letter-spacing: .05em; line-height: 1.35; min-height: 25px; }
+#view-dia .metric-value { font-size: 22px; }
+@media (max-width: 1350px) { #view-dia .metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 820px)  { #view-dia .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 /* ── Pestañas estilo navegador ────────────────────────────────────────── */
 .tabs { display: flex; gap: 6px; padding: 0 6px; margin-bottom: -2px; position: relative; z-index: 1; }
 .tab {
@@ -146,8 +154,8 @@
 /* ── Historial: encabezado de grupo sobre las columnas ─────────────────── */
 #tabla-historial thead tr.grupos th { font-size: 10px; letter-spacing: .08em; padding-bottom: 4px; }
 #tabla-historial thead tr.grupos th.g-bloques { color: var(--accent-mid); }
-#tabla-historial thead tr.grupos th.g-pera    { color: #8c6f9e; }
-#tabla-historial .col-pera { background: #eef0f7; }
+#tabla-historial thead tr.grupos th.g-pera    { color: #8a6410; }
+#tabla-historial .col-pera { background: #f7f1e0; }
 #tabla-historial thead .col-pera { background: transparent; }
 
 /* ── Estado del día: cada uno con su fondo, para ubicarlo de un vistazo ── */
@@ -157,6 +165,10 @@
 
 /* Botones de acción del historial, uno al lado del otro */
 .acciones-fila { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* Botón de limpiar filtros: gris azulado, distinto del verde de "Cerrar todos" */
+.btn-filtro { background: #e2e7ee; color: #5a6b7e; box-shadow: var(--nm-out-sm); }
+.btn-filtro:hover, .btn-filtro:active { background: #d6dde6; color: #43536a; }
 
 /* ── Botones de acción: con FONDO propio ───────────────────────────────
    Antes solo cambiaba el color de la letra y se confundían con los botones
@@ -176,6 +188,42 @@
 
 .btn-danger { background: #f8dedb; color: #a8342b; }
 .btn-danger:hover, .btn-danger:active { background: #f3ccc7; color: #8c2820; }
+
+/* ── Interruptor de "ver todos los productos" y aviso de borrador ────── */
+.barra-tabs { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.ver-todos {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 12px; color: var(--text2); font-weight: 600;
+  padding: 7px 14px; border-radius: var(--pill);
+  background: var(--bg); box-shadow: var(--nm-out-xs);
+  margin-bottom: 4px; white-space: nowrap;
+}
+.ver-todos:hover { color: var(--accent); }
+.ver-todos input { accent-color: var(--accent-mid); width: 15px; height: 15px; cursor: pointer; }
+
+.aviso-borrador {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  margin: 12px 0 0; padding: 11px 16px;
+  border-radius: var(--radius); background: #fdf3da;
+  box-shadow: var(--nm-out-xs); font-size: 12.5px; color: #7a5a10;
+}
+
+/* ── Barra lateral al contraer y expandir ──────────────────────────────
+   El ancho se anima en .34 s, pero los textos aparecían de golpe dentro de
+   una barra todavía angosta: se envolvían en varias líneas y luego saltaban
+   a su sitio. Ahora nunca envuelven — se recortan — y entran con un
+   desvanecido corto, así el movimiento se ve limpio. */
+/* Los rótulos nunca envuelven: se recortan. El título de la marca sí va en
+   dos renglones, y el desvanecido tapa el reacomodo mientras la barra se abre. */
+.sidebar-section-label, .nav-label {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.app:not(.sidebar-collapsed) .nav-label,
+.app:not(.sidebar-collapsed) .sidebar-section-label,
+.app:not(.sidebar-collapsed) .brand-text {
+  animation: texto-lateral .34s ease both;
+}
+@keyframes texto-lateral { 0%, 45% { opacity: 0 } 100% { opacity: 1 } }
 
 /* ── Catálogo ─────────────────────────────────────────────────────────── */
 .aviso-catalogo {
@@ -199,12 +247,18 @@
   box-shadow: var(--nm-in-xs), 0 0 0 2px var(--danger) !important;
   color: var(--danger);
 }
-#tabla-produccion tr.desviada .prog,
-#tabla-produccion tr.desviada .lb-real { color: var(--warn); font-weight: 700; }
+#tabla-produccion tr.desviada .prog { color: var(--warn); font-weight: 700; }
+/* La casilla misma se pone ámbar, para verlo antes de guardar */
+#tabla-produccion tr.desviada input.c-real,
+#tabla-produccion tr.desviada input.c-fund {
+  background: #fdf0d2;
+  box-shadow: var(--nm-in-xs), 0 0 0 2px #e0b24a;
+  color: #8a6410; font-weight: 600;
+}
 
 /* ── Tarjetas del día agrupadas: pera y totales se distinguen ─────────── */
-.metric-card.card-pera  { background: linear-gradient(145deg, #eceaf4, #e6e3ef); }
-.metric-card.card-pera .metric-value { color: #6b5a86; }
+.metric-card.card-pera  { background: linear-gradient(145deg, #f6efda, #f0e7cc); }
+.metric-card.card-pera .metric-value { color: #8a6410; }
 .metric-card.card-total { box-shadow: var(--nm-out-md); }
 .metric-card.card-total .metric-label { color: var(--accent); }
 .metric-card.card-total .metric-value { color: var(--accent); }
@@ -230,11 +284,16 @@
 /* ── Dashboard ───────────────────────────────────────────────────────── */
 .grid-graficas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .grid-graficas .ancho-total { grid-column: 1 / -1; }
+/* Los filtros caben en una sola línea: cada campo ocupa lo que necesita y
+   los botones se van al extremo. Solo se parten en pantallas angostas. */
 .filtros {
-  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px; margin-bottom: 16px;
+  display: flex; flex-wrap: wrap; align-items: flex-end;
+  gap: 10px 14px; margin-bottom: 16px;
 }
-@media (max-width: 1250px) { .filtros { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.filtros .field { flex: 0 0 auto; }
+.filtros .field input[type=date] { width: 138px; }
+.filtros .field select { min-width: 150px; }
+.filtros .acciones { display: flex; gap: 8px; margin-left: auto; }
 .grafica-box { position: relative; height: 300px; }
 @media (max-width: 1100px) { .grid-graficas { grid-template-columns: 1fr; } }
 </style>
@@ -398,13 +457,28 @@
         </div>
       </div>
 
-      <div class="tabs" role="tablist">
-        <button class="tab activa" id="tab-programacion" role="tab" onclick="mostrarTab('programacion')">
-          <span class="punto"></span> Programación
-        </button>
-        <button class="tab" id="tab-produccion" role="tab" onclick="mostrarTab('produccion')">
-          <span class="punto"></span> Producción
-        </button>
+      <div class="barra-tabs">
+        <div class="tabs" role="tablist">
+          <button class="tab activa" id="tab-programacion" role="tab" onclick="mostrarTab('programacion')">
+            <span class="punto"></span> Programación
+          </button>
+          <button class="tab" id="tab-produccion" role="tab" onclick="mostrarTab('produccion')">
+            <span class="punto"></span> Producción
+          </button>
+        </div>
+        <label class="ver-todos" id="caja-ver-todos" style="display:none">
+          <input type="checkbox" id="chk-ver-todos" onchange="alternarVerTodos()">
+          <span id="txt-ver-todos">Ver todos los productos</span>
+        </label>
+      </div>
+
+      <!-- Aviso de borrador: lo digitado y no guardado se recupera al volver -->
+      <div class="aviso-borrador" id="aviso-borrador" style="display:none">
+        <span>Quedó digitación sin guardar de este día (<b id="borrador-cuando"></b>).</span>
+        <div class="acciones-fila">
+          <button class="btn btn-sm btn-ok" onclick="recuperarBorrador()">Recuperar</button>
+          <button class="btn btn-sm" onclick="descartarBorrador(true)">Descartar</button>
+        </div>
       </div>
 
       <div class="tab-panel activo" id="panel-programacion">
@@ -737,8 +811,8 @@
               <input id="h-desde" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('h')"></div>
             <div class="field"><label>Hasta</label>
               <input id="h-hasta" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('h')"></div>
-            <div style="display:flex;align-items:flex-end;gap:8px">
-              <button class="btn btn-sm" onclick="limpiarFiltros('h')">Ver todo</button>
+            <div class="acciones">
+              <button class="btn btn-sm btn-filtro" onclick="limpiarFiltros('h')">Ver todo</button>
               <button class="btn btn-sm btn-cerrar" onclick="cerrarTodosLosDias()">Cerrar todos</button>
             </div>
           </div>
@@ -836,8 +910,8 @@
               <input id="d-desde" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('d')"></div>
             <div class="field"><label>Hasta</label>
               <input id="d-hasta" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('d')"></div>
-            <div style="display:flex;align-items:flex-end">
-              <button class="btn btn-sm" onclick="limpiarFiltros('d')">Ver todo</button>
+            <div class="acciones">
+              <button class="btn btn-sm btn-filtro" onclick="limpiarFiltros('d')">Ver todo</button>
             </div>
           </div>
           <div class="empty-state" id="dash-vacio" style="display:none">
@@ -1438,6 +1512,18 @@ function celdaDestino(p, anterior) {
   return p.destino !== anterior ? esc(p.destino) : '';
 }
 
+// El entorno común pasa a MAYÚSCULAS todo lo que se escribe en un input y
+// para eso usa setSelectionRange, que una casilla de verificación no tiene:
+// al marcar un filtro el evento reventaba. Las casillas no llevan texto, así
+// que su evento `input` no necesita llegar hasta ese manejador.
+// (El arreglo de fondo va en el entorno cuando se migre Mosquera.)
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t && t.tagName === 'INPUT' && (t.type === 'checkbox' || t.type === 'radio')) {
+    e.stopPropagation();
+  }
+}, true);
+
 // ── Digitación: coma y punto valen lo mismo ──────────────────────────────
 // Un <input type="number"> DESCARTA la coma sin avisar: el campo se queda
 // vacío y el operario no se entera. Aquí la coma se convierte en punto en el
@@ -1678,6 +1764,8 @@ function refrescarDia() {
   recalcularProduccion();
   aplicarEstadoDia();
   marcarPestanas();
+  aplicarFiltroProductos();
+  revisarBorrador();
 }
 
 function recalcularProduccion() {
@@ -1920,6 +2008,7 @@ async function guardarDia(desde) {
     toast('Listo el ' + fmtFecha(fecha) + '. Sigue el ' + fmtFecha(diaSiguiente(fecha)) + '.');
   }
 
+  descartarBorrador(false);       // ya quedó guardado de verdad
   refrescarDia();
   renderHistorialHonda();
   irArribaDelDia();
@@ -2368,6 +2457,137 @@ function diasFiltrados(pref) {
         && (!hasta || fe <= hasta);
   });
 }
+
+// ── Ver solo los productos del día ───────────────────────────────────────
+// Cuando el día ya tiene algo guardado, la tabla se recorta a los productos
+// que de verdad se programaron o se cortaron: son 4 o 5 en vez de 19. En un
+// día nuevo no se recorta nada, porque todavía no se sabe qué va a entrar.
+let verTodosLosProductos = false;
+
+function alternarVerTodos() {
+  verTodosLosProductos = document.getElementById('chk-ver-todos').checked;
+  aplicarFiltroProductos();
+}
+
+function aplicarFiltroProductos() {
+  const id = idDiaActual();
+  const delDia = new Set((id ? detalleDeDia(id) : []).map(f => f.id_producto));
+  const caja = document.getElementById('caja-ver-todos');
+  const recortar = delDia.size > 0 && !verTodosLosProductos;
+
+  let escondidas = 0;
+  document.querySelectorAll('#tbody-programacion tr').forEach(tr => {
+    const fuera = recortar && !delDia.has(tr.dataset.producto);
+    if (fuera) escondidas++;
+    document.querySelectorAll(`[data-producto="${tr.dataset.producto}"]`)
+      .forEach(fila => { fila.style.display = fuera ? 'none' : ''; });
+  });
+
+  caja.style.display = delDia.size ? '' : 'none';
+  document.getElementById('txt-ver-todos').textContent = verTodosLosProductos
+    ? `Ver todos los productos (${catalogo.length})`
+    : `Ver todos los productos (${escondidas} ocultos)`;
+  espejarScrollTodos('#view-dia .table-wrap');
+}
+
+// ── Borrador automático ──────────────────────────────────────────────────
+// En planta se cae el internet. Lo digitado se guarda en el navegador cada
+// pocos segundos; si se cierra la página o falla el guardado, al volver al
+// mismo día se ofrece recuperarlo. Vive solo en ese computador.
+const CLAVE_BORRADOR = 'peniel_honda_borrador_v1';
+const CLASES_PROD = ['c-real', 'c-fund', 'd-suave', 'd-peso', 'd-pres', 'd-cont'];
+let tempBorrador = 0;
+
+function leerFormularioDia() {
+  const d = { prog: {}, prod: {}, rep: {}, campos: {} };
+  document.querySelectorAll('#tbody-programacion tr').forEach(tr => {
+    const v = tr.querySelector('.p-prog').value;
+    if (v !== '') d.prog[tr.dataset.producto] = v;
+  });
+  document.querySelectorAll('#tbody-produccion tr').forEach(tr => {
+    CLASES_PROD.forEach(c => {
+      const el = tr.querySelector('.' + c);
+      if (el && el.value !== '') (d.prod[tr.dataset.producto] ||= {})[c] = el.value;
+    });
+  });
+  document.querySelectorAll('.r-lb').forEach(el => {
+    if (el.value !== '') d.rep[el.dataset.origen] = el.value;
+  });
+  [...Object.values(CAMPOS_DIA), ...Object.values(CAMPOS_PERA),
+   'f-observaciones', 'f-pera-observaciones'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.value !== '') d.campos[id] = el.value;
+  });
+  return d;
+}
+
+function aplicarFormularioDia(d) {
+  document.querySelectorAll('#tbody-programacion tr').forEach(tr => {
+    tr.querySelector('.p-prog').value = d.prog?.[tr.dataset.producto] ?? '';
+  });
+  document.querySelectorAll('#tbody-produccion tr').forEach(tr => {
+    const v = d.prod?.[tr.dataset.producto] || {};
+    CLASES_PROD.forEach(c => {
+      const el = tr.querySelector('.' + c);
+      if (el) el.value = v[c] ?? '';
+    });
+  });
+  document.querySelectorAll('.r-lb').forEach(el => { el.value = d.rep?.[el.dataset.origen] ?? ''; });
+  [...Object.values(CAMPOS_DIA), ...Object.values(CAMPOS_PERA),
+   'f-observaciones', 'f-pera-observaciones'].forEach(id => set(id, d.campos?.[id] ?? ''));
+  recalcularProgramacion();
+  recalcularProduccion();
+}
+
+function anotarBorrador() {
+  clearTimeout(tempBorrador);
+  tempBorrador = setTimeout(() => {
+    const fecha = fechaActual();
+    if (!fecha || diaCerrado()) return;
+    try {
+      localStorage.setItem(CLAVE_BORRADOR, JSON.stringify(
+        { fecha, cuando: Date.now(), datos: leerFormularioDia() }));
+    } catch (e) { /* sin espacio o modo privado: el borrador es un extra */ }
+  }, 800);
+}
+
+function borradorGuardado() {
+  try { return JSON.parse(localStorage.getItem(CLAVE_BORRADOR) || 'null'); }
+  catch (e) { return null; }
+}
+
+function descartarBorrador(avisar) {
+  try { localStorage.removeItem(CLAVE_BORRADOR); } catch (e) {}
+  document.getElementById('aviso-borrador').style.display = 'none';
+  if (avisar) toast('Borrador descartado.');
+}
+
+function recuperarBorrador() {
+  const b = borradorGuardado();
+  if (!b || b.fecha !== fechaActual()) return descartarBorrador(false);
+  aplicarFormularioDia(b.datos);
+  aplicarFiltroProductos();
+  document.getElementById('aviso-borrador').style.display = 'none';
+  toast('Se recuperó lo que estabas digitando. Revísalo y guarda.');
+}
+
+// Se ofrece solo si el borrador es de ESTE día y trae algo distinto
+function revisarBorrador() {
+  const aviso = document.getElementById('aviso-borrador');
+  const b = borradorGuardado();
+  if (!b || b.fecha !== fechaActual() || diaCerrado() ||
+      JSON.stringify(b.datos) === JSON.stringify(leerFormularioDia())) {
+    aviso.style.display = 'none';
+    return;
+  }
+  document.getElementById('borrador-cuando').textContent =
+    new Date(b.cuando).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
+  aviso.style.display = '';
+}
+
+document.addEventListener('input', e => {
+  if (e.target?.closest('#view-dia')) anotarBorrador();
+});
 
 // ── Catálogo de productos (solo administradores) ─────────────────────────
 // Se edita sobre una copia; nada se escribe hasta darle Guardar catálogo, y
@@ -2860,7 +3080,8 @@ async function renderDashboardHonda() {
   const etiquetas = grupos.map(g => g.etiqueta);
   const t = grupos.map(g => totalesDe(g.dias));
   const AZUL = '#3d6c94', VERDE = '#5b9279', AMARILLO = '#c9a227',
-        ROJO = '#c2544d', MORADO = '#8c6f9e', GRIS = '#9aa7b4';
+        ROJO = '#c2544d', MORADO = '#b8860b', GRIS = '#9aa7b4';   // "MORADO" quedó
+        // con el nombre viejo: hoy es el amarillo quemado del queso pera
   // Una función, no un objeto: Chart.js escribe dentro de las opciones que
   // recibe, y compartir el mismo objeto entre gráficas las contamina.
   const ejes = () => ({ responsive: true, maintainAspectRatio: false,
