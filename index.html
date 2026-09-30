@@ -158,12 +158,57 @@
 /* Botones de acción del historial, uno al lado del otro */
 .acciones-fila { display: flex; gap: 6px; justify-content: flex-end; }
 
-/* ── Botones de la tarjeta del día: cada acción con su color ─────────── */
-.btn-mover  { color: var(--accent-mid); }
-.btn-mover:hover { color: var(--accent-mid); }
-.btn-cerrar { color: var(--ok); }
-.btn-cerrar:hover { color: var(--ok); }
-.btn-cerrar.reabrir, .btn-cerrar.reabrir:hover { color: var(--warn); }
+/* ── Botones de acción: con FONDO propio ───────────────────────────────
+   Antes solo cambiaba el color de la letra y se confundían con los botones
+   normales. Ahora cada acción trae su fondo, manteniendo el relieve. */
+.btn-mover, .btn-cerrar, .btn-danger, .btn-ok {
+  box-shadow: var(--nm-out-sm);
+}
+.btn-mover  { background: #dde9f6; color: #28618f; }
+.btn-mover:hover, .btn-mover:active  { background: #cfe0f2; color: #1d4b71; }
+
+.btn-cerrar, .btn-ok { background: #d7eedd; color: #1f6b3a; }
+.btn-cerrar:hover, .btn-cerrar:active,
+.btn-ok:hover, .btn-ok:active { background: #c6e6d0; color: #17572e; }
+
+.btn-cerrar.reabrir { background: #fbeed3; color: #8a6510; }
+.btn-cerrar.reabrir:hover, .btn-cerrar.reabrir:active { background: #f6e4bd; color: #70510a; }
+
+.btn-danger { background: #f8dedb; color: #a8342b; }
+.btn-danger:hover, .btn-danger:active { background: #f3ccc7; color: #8c2820; }
+
+/* ── Catálogo ─────────────────────────────────────────────────────────── */
+.aviso-catalogo {
+  background: #eef3f9; border-radius: var(--radius);
+  padding: 12px 16px; font-size: 12.5px; color: var(--text2);
+  box-shadow: var(--nm-in-xs); line-height: 1.55;
+}
+#tabla-catalogo input, #tabla-catalogo select {
+  width: 100%; padding: 8px 10px; border: none; border-radius: var(--radius-campo);
+  background: var(--bg); color: var(--text);
+  font-family: 'DM Mono', monospace; font-size: 12.5px;
+  box-shadow: var(--nm-in-xs);
+}
+#tabla-catalogo select { font-family: 'Plus Jakarta Sans', sans-serif; }
+#tabla-catalogo input[readonly] { color: var(--text3); background: transparent; box-shadow: none; }
+#tabla-catalogo tr.fila-cerrada { opacity: .62; }
+#tabla-catalogo tr.fila-cerrada input:not([readonly]) { text-decoration: line-through; }
+
+/* ── Campo mal digitado y fila que se aleja de lo programado ──────────── */
+.data-table input.campo-malo, .field input.campo-malo {
+  box-shadow: var(--nm-in-xs), 0 0 0 2px var(--danger) !important;
+  color: var(--danger);
+}
+#tabla-produccion tr.desviada .prog,
+#tabla-produccion tr.desviada .lb-real { color: var(--warn); font-weight: 700; }
+
+/* ── Tarjetas del día agrupadas: pera y totales se distinguen ─────────── */
+.metric-card.card-pera  { background: linear-gradient(145deg, #eceaf4, #e6e3ef); }
+.metric-card.card-pera .metric-value { color: #6b5a86; }
+.metric-card.card-total { box-shadow: var(--nm-out-md); }
+.metric-card.card-total .metric-label { color: var(--accent); }
+.metric-card.card-total .metric-value { color: var(--accent); }
+.metric-sub { font-size: 10px; color: var(--text3); margin-top: 3px; letter-spacing: .02em; }
 
 /* ── Día cerrado ─────────────────────────────────────────────────────── */
 .aviso-cerrado {
@@ -254,6 +299,14 @@
       <button class="nav-item" onclick="showView('dashboard')" id="nav-dashboard">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></span>
         <span class="nav-label">Dashboard</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section" id="seccion-admin" style="display:none">
+      <div class="sidebar-section-label">Administración</div>
+      <button class="nav-item" onclick="showView('catalogo')" id="nav-catalogo">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/><circle cx="19" cy="18" r="2.5"/></svg></span>
+        <span class="nav-label">Catálogo</span>
       </button>
     </div>
 
@@ -376,12 +429,32 @@
             </div>
             <div class="metrics-grid" style="margin-top:14px">
               <div class="metric-card">
-                <div class="metric-label">Total bloques programados</div>
-                <div class="metric-value" id="mp-total-bloques">0</div>
+                <div class="metric-label">Bloques programados</div>
+                <div class="metric-value" id="mp-bloques-un">0</div>
+                <div class="metric-sub">sin queso pera</div>
               </div>
               <div class="metric-card">
+                <div class="metric-label">Libras programadas de bloques</div>
+                <div class="metric-value" id="mp-bloques-lb">0</div>
+                <div class="metric-sub">sin queso pera</div>
+              </div>
+              <div class="metric-card card-pera">
+                <div class="metric-label">Unidades programadas de pera</div>
+                <div class="metric-value" id="mp-pera-un">0</div>
+              </div>
+              <div class="metric-card card-pera">
+                <div class="metric-label">Libras programadas de pera</div>
+                <div class="metric-value" id="mp-pera-lb">0</div>
+              </div>
+              <div class="metric-card card-total">
+                <div class="metric-label">Total programado</div>
+                <div class="metric-value" id="mp-total-bloques">0</div>
+                <div class="metric-sub">unidades, bloques + pera</div>
+              </div>
+              <div class="metric-card card-total">
                 <div class="metric-label">Total libras programadas</div>
                 <div class="metric-value" id="mp-total-lb">0</div>
+                <div class="metric-sub">bloques + pera</div>
               </div>
             </div>
           </div>
@@ -423,8 +496,18 @@
             </div>
             <div class="metrics-grid" style="margin-top:14px">
               <div class="metric-card">
+                <div class="metric-label">Libras D.C. y mozzarella</div>
+                <div class="metric-value" id="m-bloques-lb">0</div>
+                <div class="metric-sub">bloques, sin queso pera</div>
+              </div>
+              <div class="metric-card card-pera">
+                <div class="metric-label">Libras de queso pera</div>
+                <div class="metric-value" id="m-pera-lb">0</div>
+              </div>
+              <div class="metric-card card-total">
                 <div class="metric-label">Total libras producidas</div>
                 <div class="metric-value" id="m-total-lb">0</div>
+                <div class="metric-sub">bloques + pera</div>
               </div>
               <div class="metric-card">
                 <div class="metric-label">Mejoramiento (reproceso)</div>
@@ -434,9 +517,10 @@
                 <div class="metric-label">Libras sin mejoramiento</div>
                 <div class="metric-value" id="m-sin-mejoramiento">0</div>
               </div>
-              <div class="metric-card">
-                <div class="metric-label">% cumplimiento</div>
+              <div class="metric-card card-total">
+                <div class="metric-label">% cumplimiento de bloques</div>
                 <div class="metric-value" id="m-cumplimiento">—</div>
+                <div class="metric-sub">libras cortadas ÷ programadas</div>
               </div>
             </div>
           </div>
@@ -645,18 +729,10 @@
       <div class="card">
         <div class="card-body">
           <div class="filtros">
-            <div class="field"><label>Año</label>
-              <select id="h-anio" onchange="alCambiarFiltro('h')"></select></div>
-            <div class="field"><label>Mes</label>
-              <select id="h-mes" onchange="alCambiarFiltro('h')"></select></div>
-            <div class="field"><label>Quincena</label>
-              <select id="h-quincena" onchange="alCambiarFiltro('h')">
-                <option value="">Todas</option>
-                <option value="Q1">Q1 (1 al 15)</option>
-                <option value="Q2">Q2 (16 en adelante)</option>
-              </select></div>
-            <div class="field"><label>Semana juliana</label>
-              <select id="h-semana" onchange="alCambiarFiltro('h')"></select></div>
+            <div class="field"><label>Año</label><div id="h-anio"></div></div>
+            <div class="field"><label>Mes</label><div id="h-mes"></div></div>
+            <div class="field"><label>Quincena</label><div id="h-quincena"></div></div>
+            <div class="field"><label>Semana juliana</label><div id="h-semana"></div></div>
             <div class="field"><label>Desde</label>
               <input id="h-desde" type="date" min="2025-01-01" max="2027-12-31" oninput="alCambiarFiltro('h')"></div>
             <div class="field"><label>Hasta</label>
@@ -702,23 +778,53 @@
       </div>
     </div>
 
+    <!-- ═══ VIEW: CATÁLOGO ═══ solo administradores ═══ -->
+    <div class="view" id="view-catalogo">
+      <div class="card">
+        <div class="card-body">
+          <div class="aviso-catalogo">
+            Un producto que ya se usó <strong>no se borra</strong>: se cierra con una fecha en
+            <em>Vigente hasta</em> y desaparece de la captura, pero los días ya registrados siguen
+            leyéndose bien. Eliminar de verdad solo se permite si el producto nunca se ha usado.
+          </div>
+          <div class="table-wrap" style="margin-top:14px">
+            <table class="data-table" id="tabla-catalogo">
+              <thead>
+                <tr>
+                  <th style="width:120px">Código</th>
+                  <th style="min-width:190px">Destino</th>
+                  <th style="width:110px">Gramaje</th>
+                  <th style="width:120px">Unidad</th>
+                  <th style="width:90px">Orden</th>
+                  <th style="width:150px">Vigente desde</th>
+                  <th style="width:150px">Vigente hasta</th>
+                  <th style="width:110px">Días con uso</th>
+                  <th style="width:120px"></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-catalogo"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;margin-top:18px">
+            <button class="btn btn-sm" onclick="agregarProductoCatalogo()">+ Agregar producto</button>
+            <div style="display:flex;gap:10px">
+              <button class="btn" onclick="renderCatalogo()">Descartar cambios</button>
+              <button class="btn btn-primary" onclick="guardarCatalogo()">Guardar catálogo</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ═══ VIEW: DASHBOARD ═══ -->
     <div class="view" id="view-dashboard">
       <div class="card">
         <div class="card-body">
           <div class="filtros">
-            <div class="field"><label>Año</label>
-              <select id="d-anio" onchange="alCambiarFiltro('d')"></select></div>
-            <div class="field"><label>Mes</label>
-              <select id="d-mes" onchange="alCambiarFiltro('d')"></select></div>
-            <div class="field"><label>Quincena</label>
-              <select id="d-quincena" onchange="alCambiarFiltro('d')">
-                <option value="">Todas</option>
-                <option value="Q1">Q1 (1 al 15)</option>
-                <option value="Q2">Q2 (16 en adelante)</option>
-              </select></div>
-            <div class="field"><label>Semana juliana</label>
-              <select id="d-semana" onchange="alCambiarFiltro('d')"></select></div>
+            <div class="field"><label>Año</label><div id="d-anio"></div></div>
+            <div class="field"><label>Mes</label><div id="d-mes"></div></div>
+            <div class="field"><label>Quincena</label><div id="d-quincena"></div></div>
+            <div class="field"><label>Semana juliana</label><div id="d-semana"></div></div>
             <div class="field"><label>Ver las gráficas por</label>
               <select id="d-agrupar" onchange="alCambiarFiltro('d')">
                 <option value="dia">Día</option>
@@ -844,12 +950,19 @@ window.APP = {
   TITULOS: {
     dia: 'Registro del día',
     historial: 'Historial diario',
-    dashboard: 'Dashboard de producción'
+    dashboard: 'Dashboard de producción',
+    catalogo: 'Catálogo de productos'
   },
   CAMPOS_FECHA_HOY: ['f-fecha'],
   alIniciar() { cargarDatos(); },
-  alCambiarUsuario() { refrescarDia(); },
+  alCambiarUsuario() {
+    // El catálogo es solo para administradores
+    const admin = document.getElementById('seccion-admin');
+    if (admin) admin.style.display = isAdmin() ? '' : 'none';
+    refrescarDia();
+  },
   alCambiarVista(v) {
+    if (v === 'catalogo')  renderCatalogo();
     if (v === 'dia')       refrescarDia();
     if (v === 'historial') renderHistorialHonda();
     if (v === 'dashboard') renderDashboardHonda();
@@ -947,7 +1060,8 @@ const CATALOGO_RESPALDO = [
   ['PERA-1000','HONDA','QUESO PERA',1000,'UNIDAD',19,'',''],
 ].map(r => rowToObj(r, COLS_CATALOGO));
 
-let catalogo = [];
+let catalogo = [];          // solo los vigentes: es lo que se ve en captura
+let catalogoCompleto = [];  // todas las filas de la hoja, incluidas las cerradas
 let dias = [];        // PRODUCCION_DIA
 let detalle = [];     // PRODUCCION_DETALLE
 let reprocesos = [];  // REPROCESO
@@ -956,7 +1070,15 @@ let peras = [];       // QUESO_PERA
 // redimensionar las gráficas cuando se contrae la barra lateral (`let` no lo hace).
 var dashCharts = {};
 
-const num = v => parseFloat(v) || 0;
+// Acepta coma o punto como separador decimal, y el punto de miles del
+// formato colombiano: "1.234,5" → 1234.5, "11,27" → 11.27, "11.27" → 11.27.
+const num = v => {
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  const t = String(v ?? '').trim();
+  if (!t) return 0;
+  const limpio = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t;
+  return parseFloat(limpio) || 0;
+};
 const val = id => num(document.getElementById(id)?.value);
 const txt = id => (document.getElementById(id)?.value || '').trim();
 const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
@@ -1064,6 +1186,7 @@ async function cargarDatos() {
     if (!hayHoja()) {
       const demo = window.DATOS_DEMO;
       catalogo   = CATALOGO_RESPALDO;
+      catalogoCompleto = CATALOGO_RESPALDO.map(p => ({ ...p }));
       dias       = (demo?.dia      || []).map(r => rowToObj(r, COLS_DIA));
       detalle    = (demo?.detalle  || []).map(r => rowToObj(r, COLS_DETALLE));
       reprocesos = (demo?.reproceso|| []).map(r => rowToObj(r, COLS_REPROCESO));
@@ -1093,10 +1216,12 @@ async function cargarDatos() {
       fijarOrden(HOJA_REPROCESO, cabecera(rep), COLS_REPROCESO);
       fijarOrden(HOJA_PERA,      cabecera(per), COLS_PERA);
 
-      catalogo = filas(cat).map(r => rowToObj(r, cols(HOJA_CATALOGO, COLS_CATALOGO)))
-        .filter(p => p.id_producto && !p.vigente_hasta);
+      catalogoCompleto = filas(cat).map(r => rowToObj(r, cols(HOJA_CATALOGO, COLS_CATALOGO)))
+        .filter(p => p.id_producto);
+      catalogo = catalogoCompleto.filter(p => !String(p.vigente_hasta).trim());
       if (!catalogo.length) {
         catalogo = CATALOGO_RESPALDO;
+        catalogoCompleto = CATALOGO_RESPALDO.map(p => ({ ...p }));
         toast('La hoja CATALOGO está vacía: se usa el catálogo de respaldo.', 'error');
       }
       dias       = filas(d).map(r => rowToObj(r, cols(HOJA_DIA, COLS_DIA))).filter(x => x.id_dia);
@@ -1313,6 +1438,95 @@ function celdaDestino(p, anterior) {
   return p.destino !== anterior ? esc(p.destino) : '';
 }
 
+// ── Digitación: coma y punto valen lo mismo ──────────────────────────────
+// Un <input type="number"> DESCARTA la coma sin avisar: el campo se queda
+// vacío y el operario no se entera. Aquí la coma se convierte en punto en el
+// momento de teclear o de pegar.
+document.addEventListener('keydown', e => {
+  const el = e.target;
+  if (!el || el.tagName !== 'INPUT' || el.type !== 'number' || e.key !== ',') return;
+  e.preventDefault();
+  if (el.value.includes('.')) return;                  // ya tiene decimal
+  if (!document.execCommand('insertText', false, '.')) el.value += '.';
+});
+document.addEventListener('paste', e => {
+  const el = e.target;
+  if (!el || el.tagName !== 'INPUT' || el.type !== 'number') return;
+  const texto = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+  if (!texto.includes(',')) return;
+  e.preventDefault();
+  el.value = String(num(texto));
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+});
+
+// ── Validación en pantalla, antes de guardar ─────────────────────────────
+// Un campo de enteros con decimales, o un número negativo, queda marcado en
+// rojo en el momento; el guardado se detiene y dice cuáles son.
+function campoInvalido(el) {
+  const v = el.value.trim();
+  if (v === '') return '';
+  const n = Number(v.replace(',', '.'));
+  if (!isFinite(n)) return 'no es un número';
+  if (n < 0) return 'no puede ser negativo';
+  const paso = el.getAttribute('step');
+  if ((!paso || paso === '1') && !Number.isInteger(n)) return 'debe ser un número entero';
+  return '';
+}
+
+function revisarCampos(contenedor) {
+  const malos = [];
+  contenedor.querySelectorAll('input[type=number]').forEach(el => {
+    const motivo = campoInvalido(el);
+    el.classList.toggle('campo-malo', !!motivo);
+    el.title = motivo || '';
+    if (motivo) malos.push({ el, motivo });
+  });
+  return malos;
+}
+
+function avisarCamposMalos(malos) {
+  const nombre = el => el.closest('tr')?.cells[0]?.textContent.trim()
+    || el.closest('.field')?.querySelector('label')?.textContent.trim()
+    || 'un campo';
+  toast('Revisa lo marcado en rojo: ' +
+    malos.slice(0, 3).map(m => `${nombre(m.el)} ${m.motivo}`).join('; ') +
+    (malos.length > 3 ? ` y ${malos.length - 3} más.` : '.'), 'error');
+  malos[0].el.focus();
+}
+
+// Marca en el acto mientras se digita
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el?.tagName === 'INPUT' && el.type === 'number' && el.closest('#view-dia')) {
+    const motivo = campoInvalido(el);
+    el.classList.toggle('campo-malo', !!motivo);
+    el.title = motivo || '';
+  }
+});
+
+// Cuánto puede alejarse lo producido de lo programado antes de preguntar
+const LIMITE_DESVIO = 0.30;
+
+function confirmarDesvios(filas) {
+  const fuera = [];
+  filas.forEach(f => {
+    const prog = num(f.cant_programada);
+    const cortado = num(f.cant_realizada) + num(f.cant_fundida);
+    if (!prog && !cortado) return;
+    if (!prog) { fuera.push(`${nombreDe(f.id_producto)}: ${ent(cortado)} cortadas sin programación`); return; }
+    if (!cortado) { fuera.push(`${nombreDe(f.id_producto)}: ${ent(prog)} programadas y nada cortado`); return; }
+    const r = cortado / prog;
+    if (Math.abs(r - 1) > LIMITE_DESVIO) {
+      fuera.push(`${nombreDe(f.id_producto)}: programado ${ent(prog)}, cortado ${ent(cortado)} (${(r * 100).toFixed(0)} %)`);
+    }
+  });
+  if (!fuera.length) return true;
+  return confirm('Hay diferencias grandes entre lo programado y lo producido:\n\n• ' +
+    fuera.join('\n• ') +
+    `\n\nSe avisa cuando la diferencia pasa del ${LIMITE_DESVIO * 100} %.` +
+    '\n\n¿Guardar de todas formas?');
+}
+
 // ── 1. Programación ──────────────────────────────────────────────────────
 function renderTablaProgramacion() {
   let anterior = null;
@@ -1332,15 +1546,22 @@ function renderTablaProgramacion() {
 }
 
 function recalcularProgramacion() {
-  let bloques = 0, libras = 0;
+  // Se llevan por separado los bloques y el queso pera, como en el Excel
+  let unBloq = 0, lbBloq = 0, unPera = 0, lbPera = 0;
   document.querySelectorAll('#tbody-programacion tr').forEach(tr => {
     const cant = num(tr.querySelector('.p-prog').value);
     const lb = cant * num(tr.dataset.gramaje) / LB_POR_GRAMOS;
     tr.querySelector('.p-lb').textContent = cant ? lb1(lb) : '—';
-    bloques += cant; libras += lb;
+    if (esPera(tr.dataset.producto)) { unPera += cant; lbPera += lb; }
+    else                             { unBloq += cant; lbBloq += lb; }
   });
-  document.getElementById('mp-total-bloques').textContent = ent(bloques);
-  document.getElementById('mp-total-lb').textContent = lb1(libras);
+  const txt = (id, v) => { document.getElementById(id).textContent = v; };
+  txt('mp-bloques-un', ent(unBloq));
+  txt('mp-bloques-lb', lb1(lbBloq));
+  txt('mp-pera-un',    ent(unPera));
+  txt('mp-pera-lb',    lb1(lbPera));
+  txt('mp-total-bloques', ent(unBloq + unPera));
+  txt('mp-total-lb',      lb1(lbBloq + lbPera));
 }
 
 const detalleDeDia = id => detalle.filter(d => d.id_dia === id);
@@ -1461,6 +1682,7 @@ function refrescarDia() {
 
 function recalcularProduccion() {
   let totalProg = 0, totalReal = 0, totalFund = 0;
+  let progBloq = 0, lbBloq = 0, lbPeraProd = 0;
 
   document.querySelectorAll('#tbody-produccion tr').forEach(tr => {
     const g = num(tr.dataset.gramaje);
@@ -1474,8 +1696,16 @@ function recalcularProduccion() {
     const ef = tr.querySelector('.efectivas');
     ef.textContent = (real || fund) ? ent(real + fund - noConformes) : '—';
     ef.classList.toggle('text-muted', !(real || fund));
-    totalProg += num(tr.dataset.programado) * g / LB_POR_GRAMOS;
+    const lbProg = num(tr.dataset.programado) * g / LB_POR_GRAMOS;
+    // Aviso visual en la fila cuando lo cortado se aleja de lo programado
+    const progUn = num(tr.dataset.programado), cortado = real + fund;
+    tr.classList.toggle('desviada',
+      (progUn > 0 && cortado > 0 && Math.abs(cortado / progUn - 1) > LIMITE_DESVIO) ||
+      (progUn > 0 && cortado === 0) || (!progUn && cortado > 0));
+    totalProg += lbProg;
     totalReal += lbReal; totalFund += lbFund;
+    if (esPera(tr.dataset.producto)) lbPeraProd += lbReal + lbFund;
+    else { lbBloq += lbReal + lbFund; progBloq += lbProg; }
   });
 
   let reproceso = 0;
@@ -1484,11 +1714,15 @@ function recalcularProduccion() {
   const totalLb = totalReal + totalFund;
   set('f-reproceso-total', lb1(reproceso));
   set('f-pct-reproceso', pct(reproceso, totalLb));
-  document.getElementById('m-total-lb').textContent = lb1(totalLb);
-  document.getElementById('m-mejoramiento').textContent = lb1(reproceso);
-  document.getElementById('m-sin-mejoramiento').textContent = lb1(totalLb - reproceso);
-  // Cumplimiento del día: CON fundido y en LIBRAS, como en el Excel
-  document.getElementById('m-cumplimiento').textContent = pct(totalLb, totalProg);
+  const txt = (id, v) => { document.getElementById(id).textContent = v; };
+  txt('m-bloques-lb', lb1(lbBloq));
+  txt('m-pera-lb',    lb1(lbPeraProd));
+  txt('m-total-lb',   lb1(totalLb));
+  txt('m-mejoramiento', lb1(reproceso));
+  txt('m-sin-mejoramiento', lb1(totalLb - reproceso));
+  // Cumplimiento de BLOQUES: cortado (realizado + fundido) sobre programado,
+  // en libras y sin el queso pera, igual que `J36` del Excel.
+  txt('m-cumplimiento', pct(lbBloq, progBloq));
 
   set('f-fundido-total', lb1(totalFund));
   // Merma = lo que entró al fundidor menos lo que salió en bloques, y el
@@ -1611,9 +1845,13 @@ async function guardarDia(desde) {
   if (desde === 'programacion' && !prog.some(c => num(c.cant_programada) > 0)) {
     return toast('No hay ningún bloque programado.', 'error');
   }
+  const malos = revisarCampos(document.getElementById('view-dia'));
+  if (malos.length) return avisarCamposMalos(malos);
+
   const filas = filasDetalle(id, [...prog, ...cambiosProduccion()]);
   const hayProduccion = filas.some(f =>
     String(f.cant_realizada) !== '' || String(f.cant_fundida) !== '');
+  if (hayProduccion && !confirmarDesvios(filas)) return;
 
   // 2. Cabecera del día
   const previo = dias.find(d => d.id_dia === id);
@@ -2078,16 +2316,30 @@ function totalesDe(dias) {
   return r;
 }
 
+// Año, mes, quincena y semana son de selección MÚLTIPLE; el intervalo de
+// fechas y el "Ver las gráficas por" siguen siendo campos sencillos.
+// Vacío = todos, que es como se comporta el "Todos" del desplegable.
+const filtros = {
+  h: { anio: [], mes: [], quincena: [], semana: [] },
+  d: { anio: [], mes: [], quincena: [], semana: [] }
+};
+
 function poblarFiltros(pref) {
+  const f = filtros[pref];
   const anios = [...new Set(dias.map(d => String(d.fecha).slice(0, 4)))].filter(Boolean).sort();
-  opciones(sel(pref + '-anio'), anios.map(a => ({ v: a, t: a })), 'Todos');
-  opciones(sel(pref + '-mes'), MESES.map((m, i) => ({ v: String(i + 1).padStart(2, '0'), t: m })), 'Todos');
-  const sem = sel(pref + '-semana');
-  if (sem) {
-    const semanas = [...new Set(dias.map(d => semanaJuliana(d.fecha).semana))]
-      .sort((a, b) => a - b);
-    opciones(sem, semanas.map(n => ({ v: String(n), t: 'Semana ' + n })), 'Todas');
-  }
+  const semanas = [...new Set(dias.map(d => semanaJuliana(d.fecha).semana))]
+    .sort((a, b) => a - b).map(String);
+  const poner = (sufijo, titulo, ops, elegidos) => {
+    const caja = document.getElementById(pref + sufijo);
+    if (!caja) return;
+    if (caja._ms) { caja._ms.updateOptions(ops); return; }
+    caja._ms = buildMultiSelect(titulo, ops, elegidos, () => alCambiarFiltro(pref));
+    caja.appendChild(caja._ms);
+  };
+  poner('-anio',     'Año',      anios,          f.anio);
+  poner('-mes',      'Mes',      MESES,          f.mes);
+  poner('-quincena', 'Quincena', ['Q1', 'Q2'],   f.quincena);
+  poner('-semana',   'Semana',   semanas,        f.semana);
 }
 
 function alCambiarFiltro(pref) {
@@ -2095,28 +2347,174 @@ function alCambiarFiltro(pref) {
 }
 
 function limpiarFiltros(pref) {
-  ['-anio','-mes','-quincena','-semana','-desde','-hasta'].forEach(x => {
-    const el = sel(pref + x); if (el) el.value = '';
-  });
+  Object.values(filtros[pref]).forEach(a => { a.length = 0; });
+  ['-desde','-hasta'].forEach(x => { const el = sel(pref + x); if (el) el.value = ''; });
+  poblarFiltros(pref);            // repinta las casillas ya destildadas
   alCambiarFiltro(pref);
 }
 
 function diasFiltrados(pref) {
-  const anio = sel(pref + '-anio').value, mes = sel(pref + '-mes').value;
+  const f = filtros[pref];
   const desde = sel(pref + '-desde').value, hasta = sel(pref + '-hasta').value;
-  // La quincena solo existe en el dashboard: Q1 es del 1 al 15, Q2 del 16 en adelante
-  const quinc = sel(pref + '-quincena')?.value || '';
-  const sem   = sel(pref + '-semana')?.value || '';
+  const cabe = (elegidos, valor) => !elegidos.length || elegidos.includes(valor);
   return dias.filter(d => {
-    const f = String(d.fecha);
-    const dia = +f.slice(8, 10);
-    return (!anio  || f.slice(0, 4) === anio)
-        && (!mes   || f.slice(5, 7) === mes)
-        && (!quinc || (quinc === 'Q1' ? dia <= 15 : dia >= 16))
-        && (!sem   || String(semanaJuliana(f).semana) === sem)
-        && (!desde || f >= desde)
-        && (!hasta || f <= hasta);
+    const fe = String(d.fecha);
+    const dia = +fe.slice(8, 10);
+    return cabe(f.anio,     fe.slice(0, 4))
+        && cabe(f.mes,      MESES[+fe.slice(5, 7) - 1])
+        && cabe(f.quincena, dia <= 15 ? 'Q1' : 'Q2')
+        && cabe(f.semana,   String(semanaJuliana(fe).semana))
+        && (!desde || fe >= desde)
+        && (!hasta || fe <= hasta);
   });
+}
+
+// ── Catálogo de productos (solo administradores) ─────────────────────────
+// Se edita sobre una copia; nada se escribe hasta darle Guardar catálogo, y
+// entonces la hoja CATALOGO se reescribe completa en una sola operación.
+let catalogoEdit = [];
+
+const UNIDADES = ['BLOQUE', 'UNIDAD'];
+
+function diasConUso(id) {
+  return new Set(detalle.filter(d => d.id_producto === id && (
+    String(d.cant_programada) !== '' || String(d.cant_realizada) !== '' ||
+    String(d.cant_fundida) !== '')).map(d => d.id_dia)).size;
+}
+
+function renderCatalogo() {
+  if (!isAdmin()) {
+    document.getElementById('tbody-catalogo').innerHTML =
+      '<tr><td colspan="9" class="text-muted">Solo los administradores pueden ver el catálogo.</td></tr>';
+    return;
+  }
+  // Se parte del catálogo COMPLETO de la hoja, incluidos los ya cerrados
+  catalogoEdit = (catalogoCompleto.length ? catalogoCompleto : catalogo).map(p => ({ ...p }));
+  pintarCatalogo();
+}
+
+function pintarCatalogo() {
+  const opciones = u => UNIDADES.map(x =>
+    `<option value="${x}" ${String(u).toUpperCase() === x ? 'selected' : ''}>${x}</option>`).join('');
+  document.getElementById('tbody-catalogo').innerHTML = catalogoEdit.map((p, i) => {
+    const usos = diasConUso(p.id_producto);
+    const cerrado = !!String(p.vigente_hasta || '').trim();
+    return `<tr data-i="${i}" class="${cerrado ? 'fila-cerrada' : ''}">
+      <td><input class="cat-campo" data-c="id_producto" value="${esc(p.id_producto)}"
+                 ${usos ? 'readonly title="Ya tiene movimientos: el código no se puede cambiar"' : ''}></td>
+      <td><input class="cat-campo" data-c="destino" value="${esc(p.destino)}"></td>
+      <td><input class="cat-campo" data-c="presentacion_gr" type="number" min="1" step="1" value="${esc(p.presentacion_gr)}"
+                 ${usos ? 'readonly title="Ya tiene movimientos: cambiar el gramaje alteraría las libras ya registradas"' : ''}></td>
+      <td><select class="cat-campo" data-c="unidad">${opciones(p.unidad)}</select></td>
+      <td><input class="cat-campo" data-c="orden" type="number" min="0" step="1" value="${esc(p.orden)}"></td>
+      <td><input class="cat-campo" data-c="vigente_desde" type="date" min="2025-01-01" max="2027-12-31" value="${esc(p.vigente_desde)}"></td>
+      <td><input class="cat-campo" data-c="vigente_hasta" type="date" min="2025-01-01" max="2027-12-31" value="${esc(p.vigente_hasta)}"></td>
+      <td class="mono">${usos ? ent(usos) : '—'}</td>
+      <td>
+        <div class="acciones-fila">
+          ${cerrado
+            ? `<button class="btn btn-sm btn-ok" onclick="reabrirProducto(${i})">Reactivar</button>`
+            : `<button class="btn btn-sm btn-cerrar reabrir" onclick="cerrarProducto(${i})">Cerrar</button>`}
+          ${usos ? '' : `<button class="btn btn-sm btn-danger" onclick="quitarProducto(${i})">Eliminar</button>`}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.querySelectorAll('#tbody-catalogo .cat-campo').forEach(el => {
+    el.addEventListener('input', () => {
+      const i = +el.closest('tr').dataset.i;
+      catalogoEdit[i][el.dataset.c] = el.value;
+    });
+  });
+  espejarScrollTodos('#view-catalogo .table-wrap');
+}
+
+function agregarProductoCatalogo() {
+  const orden = catalogoEdit.reduce((m, p) => Math.max(m, num(p.orden)), 0) + 1;
+  catalogoEdit.push({ ...filaVacia(COLS_CATALOGO), id_producto: '', planta: 'HONDA',
+                      destino: '', presentacion_gr: '', unidad: 'BLOQUE', orden });
+  pintarCatalogo();
+  const ultima = document.querySelector('#tbody-catalogo tr:last-child input');
+  ultima?.focus();
+}
+
+// Cerrar = ponerle fecha de hoy en vigente_hasta. Es lo que se debe hacer con
+// un producto que ya se usó: desaparece de la captura y la historia se conserva.
+function cerrarProducto(i) {
+  catalogoEdit[i].vigente_hasta = new Date().toISOString().split('T')[0];
+  pintarCatalogo();
+}
+function reabrirProducto(i) { catalogoEdit[i].vigente_hasta = ''; pintarCatalogo(); }
+
+function quitarProducto(i) {
+  const p = catalogoEdit[i];
+  if (diasConUso(p.id_producto)) {
+    return toast('Ese producto ya tiene movimientos: ciérralo en vez de eliminarlo.', 'error');
+  }
+  if (!confirm(`¿Eliminar ${p.destino || 'el producto'} · ${p.presentacion_gr} del catálogo?`)) return;
+  catalogoEdit.splice(i, 1);
+  pintarCatalogo();
+}
+
+function validarCatalogo() {
+  const errores = [];
+  const codigos = new Set();
+  catalogoEdit.forEach((p, i) => {
+    const donde = `fila ${i + 1}`;
+    if (!String(p.id_producto).trim()) errores.push(`${donde}: falta el código`);
+    else if (codigos.has(p.id_producto)) errores.push(`${donde}: el código ${p.id_producto} está repetido`);
+    else codigos.add(p.id_producto);
+    if (!String(p.destino).trim()) errores.push(`${donde}: falta el destino`);
+    if (!(num(p.presentacion_gr) > 0)) errores.push(`${donde}: el gramaje debe ser mayor que cero`);
+    if (p.vigente_desde && p.vigente_hasta && p.vigente_hasta < p.vigente_desde) {
+      errores.push(`${donde}: la fecha de cierre es anterior a la de inicio`);
+    }
+  });
+  return errores;
+}
+
+async function guardarCatalogo() {
+  if (!isAdmin()) return toast('Solo los administradores pueden cambiar el catálogo.', 'error');
+  const errores = validarCatalogo();
+  if (errores.length) {
+    return toast('No se puede guardar:\n• ' + errores.slice(0, 4).join('\n• '), 'error');
+  }
+  const filas = catalogoEdit.map(p => ({ ...p, planta: 'HONDA' }))
+    .sort((a, b) => num(a.orden) - num(b.orden));
+
+  if (hayHoja()) {
+    const ok = await conBloqueo('Guardando el catálogo', () => escribirCatalogo(filas));
+    if (!ok) return;
+  }
+  catalogoCompleto = filas.map(p => ({ ...p }));
+  catalogo = catalogoCompleto.filter(p => p.id_producto && !String(p.vigente_hasta).trim())
+                             .sort((a, b) => num(a.orden) - num(b.orden));
+  // Las dos tablas de captura salen del catálogo: hay que volver a armarlas
+  renderTablaProgramacion();
+  renderTablaProduccion();
+  refrescarDia();
+  renderHistorialHonda();
+  pintarCatalogo();
+  toast(hayHoja() ? 'Catálogo guardado.' : 'Catálogo guardado solo en memoria (demo).',
+        hayHoja() ? 'success' : 'error');
+}
+
+// La hoja CATALOGO se reescribe entera: son pocas filas y así queda atómico.
+async function escribirCatalogo(filas) {
+  await asegurarSheetIds();
+  const cc = cols(HOJA_CATALOGO, COLS_CATALOGO);
+  const d = await pedir(`${URL_HOJA}/values/` +
+    `${encodeURIComponent(HOJA_CATALOGO + '!A:A')}?valueRenderOption=UNFORMATTED_VALUE`, {});
+  const usadas = Math.max((d.values || []).length, 1);     // incluye el encabezado
+  const req = [];
+  if (usadas > 1) {
+    req.push({ deleteDimension: { range: { sheetId: sheetIds[HOJA_CATALOGO],
+      dimension: 'ROWS', startIndex: 1, endIndex: usadas } } });
+  }
+  req.push({ appendCells: { sheetId: sheetIds[HOJA_CATALOGO], fields: 'userEnteredValue',
+    rows: filas.map(f => filaDe(f, cc)) } });
+  await pedir(`${URL_HOJA}:batchUpdate`, JSON_POST({ requests: req }));
 }
 
 // ── Barra de desplazamiento y encabezado que acompañan al bajar ──────────
@@ -2135,21 +2533,28 @@ function espejarScroll(wrap) {
     esp._cab   = esp.querySelector('.espejo-head');
     esp._wrap  = wrap;
 
-    // Una sola escritura por cuadro y solo si la posición cambió: así no se
-    // pelea con el desplazamiento por inercia.
-    let cuadro = 0;
-    const sincronizar = origen => {
-      if (cuadro) return;
-      cuadro = requestAnimationFrame(() => {
-        cuadro = 0;
-        const x = Math.round(origen.scrollLeft);
-        if (Math.round(wrap.scrollLeft)       !== x) wrap.scrollLeft       = x;
-        if (Math.round(esp._barra.scrollLeft) !== x) esp._barra.scrollLeft = x;
-        if (Math.round(esp._cab.scrollLeft)   !== x) esp._cab.scrollLeft   = x;
-      });
+    // Sincronizar las dos barras tiene una trampa: cada escritura nuestra
+    // dispara otro evento de scroll, y ese eco llega un cuadro tarde. Si se
+    // atiende, devuelve la barra a la posición vieja — eso era el tirón.
+    // Se recuerda el último valor escrito: si el evento trae justo ese valor
+    // es nuestro propio eco y se ignora. Se aplica en el acto (sin rAF) para
+    // que barra y tabla se muevan en el mismo cuadro.
+    esp._ultimo = -1;
+    const aplicar = x => {
+      esp._ultimo = x;
+      if (Math.round(wrap.scrollLeft)       !== x) wrap.scrollLeft       = x;
+      if (Math.round(esp._barra.scrollLeft) !== x) esp._barra.scrollLeft = x;
+      if (esp.classList.contains('con-encabezado') &&
+          Math.round(esp._cab.scrollLeft) !== x) esp._cab.scrollLeft = x;
     };
-    esp._barra.addEventListener('scroll', () => sincronizar(esp._barra), { passive: true });
-    wrap.addEventListener('scroll',       () => sincronizar(wrap),       { passive: true });
+    const alDesplazar = origen => () => {
+      const x = Math.round(origen.scrollLeft);
+      if (x === esp._ultimo) return;
+      aplicar(x);
+    };
+    esp._aplicar = aplicar;
+    esp._barra.addEventListener('scroll', alDesplazar(esp._barra), { passive: true });
+    wrap.addEventListener('scroll',       alDesplazar(wrap),       { passive: true });
     vigilarEncabezado(esp.closest('.view'));
   }
 
@@ -2162,38 +2567,51 @@ function espejarScroll(wrap) {
   if (esp._barra.offsetHeight - esp._barra.clientHeight === 0) esp._barra.style.blockSize = '14px';
 
   clonarEncabezado(esp);
-  esp._barra.scrollLeft = wrap.scrollLeft;
-  esp._cab.scrollLeft   = wrap.scrollLeft;
   actualizarPegada(esp);
+  esp._aplicar(Math.round(wrap.scrollLeft));
 }
 
+// Copia del encabezado con los anchos ya medidos, para que las columnas calcen.
 function clonarEncabezado(esp) {
   const tabla = esp._wrap.querySelector('table.data-table');
   if (!tabla || !tabla.tHead) { esp._cab.innerHTML = ''; return; }
-
   const copia = document.createElement('table');
   copia.className = tabla.className;
   copia.style.tableLayout = 'fixed';
   copia.style.width = tabla.getBoundingClientRect().width + 'px';
-
-  // Los anchos se fijan con un <colgroup>, no celda por celda: la primera fila
-  // del encabezado lleva colspan (el grupo BLOQUES / QUESO PERA) y con
-  // table-layout:fixed sería ella la que repartiría el ancho, descuadrando la
-  // copia. La referencia es la ÚLTIMA fila, que es la de las columnas reales.
-  const ultima = f => f.rows[f.rows.length - 1];
-  const reales = ultima(tabla.tHead).cells;
-  const grupo = document.createElement('colgroup');
-  for (const celda of reales) {
-    const col = document.createElement('col');
-    col.style.width = celda.getBoundingClientRect().width + 'px';
-    grupo.appendChild(col);
-  }
-  copia.appendChild(grupo);
   copia.appendChild(tabla.tHead.cloneNode(true));
+
+  // La última fila del encabezado es la de las columnas reales (la primera
+  // lleva el colspan de los grupos BLOQUES / QUESO PERA).
+  const ultima = t => t.rows[t.rows.length - 1];
+  const reales = ultima(tabla.tHead).cells;
+  const copias = ultima(copia.tHead).cells;
+  // Con table-layout: fixed el navegador toma los anchos de la PRIMERA fila, y
+  // esa es la de grupos: las columnas se repartían parejo y el encabezado
+  // quedaba corrido. Un <colgroup> con los anchos reales lo evita.
+  const cg = document.createElement('colgroup');
+  [...reales].forEach(th => {
+    const w = th.getBoundingClientRect().width;
+    if (!w) return;
+    const col = document.createElement('col');
+    col.style.width = w + 'px';
+    cg.appendChild(col);
+  });
+  copia.insertBefore(cg, copia.firstChild);
+  for (let i = 0; i < copias.length && i < reales.length; i++) {
+    const ancho = reales[i].getBoundingClientRect().width + 'px';
+    copias[i].style.width = copias[i].style.minWidth = copias[i].style.maxWidth = ancho;
+    if (reales[i].dataset.orden) {
+      const real = reales[i];
+      copias[i].style.cursor = 'pointer';
+      copias[i].addEventListener('click', () => real.click());
+    }
+  }
   esp._cab.innerHTML = '';
   esp._cab.appendChild(copia);
 }
 
+// Muestra la copia del encabezado solo cuando el real ya pasó por debajo
 function actualizarPegada(esp) {
   const vista = esp.closest('.view');
   const tabla = esp._wrap && esp._wrap.querySelector('table.data-table');
@@ -2206,8 +2624,11 @@ function actualizarPegada(esp) {
   const enElTope = esp.getBoundingClientRect().top <= tope + 1;
   const mostrar = enElTope && rCabeza.bottom < tope + altoBarra + 4
                   && rTabla.bottom > tope + altoBarra + 50;
+  const cambio = mostrar !== esp.classList.contains('con-encabezado');
+  if (cambio && mostrar) clonarEncabezado(esp);
   esp.classList.toggle('con-encabezado', mostrar);
   esp.classList.toggle('pegada', enElTope);
+  if (cambio && mostrar) esp._cab.scrollLeft = Math.round(esp._wrap.scrollLeft);
 }
 
 function vigilarEncabezado(vista) {
@@ -2226,7 +2647,7 @@ function vigilarEncabezado(vista) {
 function espejarScrollTodos(selector) {
   requestAnimationFrame(() => document.querySelectorAll(selector).forEach(espejarScroll));
 }
-window.addEventListener('resize', () => espejarScrollTodos('.table-wrap'));
+window.addEventListener('resize', () => espejarScrollTodos('.view.active .table-wrap'));
 
 // ── Historial ────────────────────────────────────────────────────────────
 function renderHistorialHonda() {
