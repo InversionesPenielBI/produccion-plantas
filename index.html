@@ -1100,8 +1100,10 @@ const ESTADO = { PROGRAMADO: 'PROGRAMADO', ABIERTO: 'ABIERTO', CERRADO: 'CERRADO
 //   'ADMIN'   → puede reabrir días cerrados y eliminar días
 //   'USUARIO' → captura y consulta, nada más
 const USUARIOS_HONDA = {
-  // 'operario.honda@inversionespeniel.com': 'USUARIO',
-  // 'jefe.honda@inversionespeniel.com':     'ADMIN',
+  'gdiaz@inversionespeniel.com':      'ADMIN',
+  'sanchezedwinjavier81@gmail.com':   'ADMIN',
+  // Copia una línea, cambia el correo y el rol:
+  // 'correo@dominio.com': 'ADMIN',
 };
 Object.assign(USUARIOS_AUTORIZADOS, USUARIOS_HONDA);
 
@@ -3057,13 +3059,17 @@ async function renderDashboardHonda() {
     ['Promedio queso pera', ...prom(T.promPera)]
   ]);
 
+  // Las dos cifras con las que se arma el rendimiento de la mantequilla van
+  // JUSTO ANTES de él, para que se lea de corrido: libras ÷ litros batidos.
   tarjetas('dash-leche', [
     ['Litros procesados', ent(litros)],
     ['Litros de crema', ent(T.litrosCrema)],
     ['% de descremado', pct(T.cantinasDescremadas, T.cantinasProcesadas)],
     ['Rendimiento de crema', T.rendCrema == null ? '—' : lb1(T.rendCrema), 'litros por cantina'],
+    ['Libras de mantequilla', ent(T.librasMantequilla), 'producidas'],
+    ['Litros batidos', ent(T.litrosBatidos)],
     ['Rendimiento mantequilla', T.rendMantequilla == null ? '—' : lb1(T.rendMantequilla),
-      'libras por litro batido']
+      'libras ÷ litros batidos']
   ]);
 
   renderCumplimientoProducto(lista);
