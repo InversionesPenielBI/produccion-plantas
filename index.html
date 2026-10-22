@@ -28,8 +28,18 @@
   outline: none;
   box-shadow: var(--nm-in-xs), 0 0 0 2px var(--accent-soft);
 }
-.data-table input.d-suave, .data-table input.d-peso,
-.data-table input.d-pres,  .data-table input.d-cont { max-width: 68px; }
+.data-table input.d-cuart, .data-table input.d-manch,
+.data-table input.d-def,   .data-table input.d-suave,
+.data-table input.d-peso,  .data-table input.d-hum,
+.data-table input.d-pres,  .data-table input.d-cont { max-width: 54px; }
+/* Fundido era la casilla más ancha de la fila y realizado la seguía: con
+   ocho causas de no conformidad la fila no cabía, así que se estrechan. */
+.data-table input.c-fund { max-width: 64px; }
+.data-table input.c-real { max-width: 76px; }
+/* Ocho causas en vez de cuatro: el encabezado es lo que ensancha la columna,
+   así que esas celdas van con menos aire y las palabras abreviadas. */
+#tabla-produccion .g-devol { padding-left: 7px; padding-right: 7px; }
+#tabla-produccion thead .g-devol { letter-spacing: .3px; }
 .data-table td.prog { font-weight: 600; }
 
 /* ── Bloques de columnas de la tabla de producción ─────────────────────
@@ -187,6 +197,54 @@
 .btn-cerrar.reabrir:hover, .btn-cerrar.reabrir:active { background: #f6e4bd; color: #70510a; }
 
 .btn-danger { background: #f8dedb; color: #a8342b; }
+/* Grilla compacta de la captura: siete casillas por renglón en vez de cuatro,
+   para que las secciones no crezcan tanto hacia abajo. `.fila-nueva` obliga a
+   empezar renglón, y así cada renglón agrupa cosas que van juntas. */
+.form-grid-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 16px 14px; }
+.form-grid-7 .fila-nueva { grid-column-start: 1; }
+.form-grid-7 .field input { padding: 11px 13px; }
+.form-grid-7 .field label { letter-spacing: .06em; }
+@media (max-width: 1250px) {
+  .form-grid-7 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .form-grid-7 .fila-nueva { grid-column-start: auto; }
+}
+@media (max-width: 700px) {
+  .form-grid-7 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Datos SIIGO: total | Jennos | semiblando | SED (con reproceso) */
+#tabla-siigo { width: auto; min-width: 640px; }
+#tabla-siigo td:first-child { font-weight: 600; white-space: nowrap; padding-right: 26px; }
+#tabla-siigo th, #tabla-siigo td { text-align: right; }
+#tabla-siigo th:first-child, #tabla-siigo td:first-child { text-align: left; }
+#tabla-siigo .g-siigo-jen { background: #f3f0fa; }
+#tabla-siigo .g-siigo-sbl { background: #f0f6f2; }
+#tabla-siigo .g-siigo-sed { background: #e7f1ea; font-weight: 700; color: #2f6b4a; min-width: 150px; }
+#tabla-siigo thead .g-siigo-jen, #tabla-siigo thead .g-siigo-sbl,
+#tabla-siigo thead .g-siigo-sed { background: transparent; }
+#tabla-siigo tr.fila-calc td { color: var(--text2); }
+#tabla-siigo tr.fila-calc td.g-siigo-sed { color: #2f6b4a; }
+#tabla-siigo td.negativo { color: #a8342b !important; background: #f8dedb !important; }
+.aviso-siigo { margin-top: 10px; font-size: 12px; color: #a8342b; font-weight: 600; }
+
+/* Subtítulo dentro de una tarjeta, para separar bloques de campos */
+.sub-titulo {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text3); margin: 22px 0 10px;
+}
+.card-body > .sub-titulo:first-child { margin-top: 0; }
+/* Panel de borrado por rango: cuelga de la barra superior, solo para ADMIN */
+.panel-rango {
+  display: none; position: absolute; right: 18px; top: 58px; z-index: 40;
+  width: 320px; padding: 16px; border-radius: var(--radius);
+  background: var(--bg); box-shadow: var(--nm-out-md);
+}
+.panel-rango.abierto { display: block; }
+.panel-rango-titulo { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.panel-rango-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.panel-rango-aviso { font-size: 11.5px; color: var(--text3); margin: 12px 0; min-height: 30px; }
+.panel-rango-aviso.peligro { color: #a8342b; font-weight: 600; }
+.panel-rango-botones { display: flex; gap: 8px; justify-content: flex-end; }
 .btn-danger:hover, .btn-danger:active { background: #f3ccc7; color: #8c2820; }
 
 /* ── Interruptor de "ver todos los productos" y aviso de borrador ────── */
@@ -398,6 +456,25 @@
       <div class="topbar-right">
         <div id="sync-status" class="text-muted" style="font-size:11px"></div>
         <button class="btn btn-sm" onclick="cargarDatos()">Actualizar</button>
+        <button class="btn btn-sm btn-danger" id="btn-borrar-rango"
+                onclick="abrirBorradoRango()" style="display:none">Eliminar por fechas</button>
+      </div>
+
+      <!-- Solo ADMIN: borra de un tirón todos los días de un rango -->
+      <div class="panel-rango" id="panel-rango">
+        <div class="panel-rango-titulo">Eliminar registros por rango de fechas</div>
+        <div class="panel-rango-campos">
+          <div class="field"><label>Desde</label>
+            <input id="br-desde" type="date" onchange="contarBorradoRango()"></div>
+          <div class="field"><label>Hasta</label>
+            <input id="br-hasta" type="date" onchange="contarBorradoRango()"></div>
+        </div>
+        <div class="panel-rango-aviso" id="br-aviso">Elige las dos fechas.</div>
+        <div class="panel-rango-botones">
+          <button class="btn btn-sm" onclick="cerrarBorradoRango()">Cancelar</button>
+          <button class="btn btn-sm btn-danger" id="br-confirmar"
+                  onclick="borrarRangoFechas()" disabled>Eliminar</button>
+        </div>
       </div>
     </div>
 
@@ -555,14 +632,20 @@
                     <th rowspan="2">Program.</th>
                     <th colspan="2">Realizado</th>
                     <th colspan="2" class="g-fundido sep-ini">Fundido</th>
-                    <th colspan="4" class="g-devol sep-ini sep-fin">Devoluciones</th>
+                    <th colspan="8" class="g-devol sep-ini sep-fin">Producto no conforme</th>
                     <th rowspan="2">Efectivas</th>
                   </tr>
                   <tr>
                     <th>Cant.</th><th>Lb</th>
                     <th class="g-fundido sep-ini">Cant.</th><th class="g-fundido">Lb</th>
-                    <th class="g-devol sep-ini">Suave</th><th class="g-devol">Bajo peso</th>
-                    <th class="g-devol">Present.</th><th class="g-devol sep-fin">Contam.</th>
+                    <th class="g-devol sep-ini" title="Cuarteado">Cuart.</th>
+                    <th class="g-devol" title="Manchado">Manch.</th>
+                    <th class="g-devol" title="Deforme">Deform.</th>
+                    <th class="g-devol" title="Suave">Suave</th>
+                    <th class="g-devol" title="Bajo peso">Bajo p.</th>
+                    <th class="g-devol" title="Húmedo">Húmedo</th>
+                    <th class="g-devol" title="Presentación">Present.</th>
+                    <th class="g-devol sep-fin" title="Contaminación">Contam.</th>
                   </tr>
                 </thead>
                 <tbody id="tbody-produccion"></tbody>
@@ -606,69 +689,193 @@
             <span class="card-header-right"><span class="card-chevron">▾</span></span>
           </div>
           <div class="card-body">
-            <div class="form-grid form-grid-4 section-gap">
+            <!-- Las cantinas van TODAS seguidas y en el orden de la hoja diaria.
+                 Fila 1: lo que se digita y cómo se reparte. Fila 2: cada destino
+                 con su rendimiento al lado. Cambio de octubre 2026: lo que se
+                 digita es J29 (cuajadas D.C. y mozzarella) y las PROCESADAS son
+                 el cálculo (J51 = pera + P. venta + jennos + semiblando + SED). -->
+            <div class="sub-titulo">Cantinas y rendimientos</div>
+            <div class="form-grid form-grid-7">
               <div class="field">
-                <label>Cantinas procesadas</label>
-                <input id="f-cantinas-procesadas" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+                <label>Cuajadas D.C. y mozzarella</label>
+                <input id="f-cantinas-dc-mz" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()"
+                       title="J29 de la hoja diaria: el total cuajado del día, incluidas las de pera, P. venta y guardadas">
               </div>
               <div class="field">
-                <label>Cuajadas para P. venta, venta y bocados</label>
+                <label>Para queso pera <span class="lbl-auto">AUTO</span></label>
+                <input id="f-cantinas-pera-eco" class="campo-calc" placeholder="—" readonly
+                       title="Viene de la sección Queso pera; no se digita dos veces">
+              </div>
+              <div class="field">
+                <label>P. venta, venta y bocados</label>
                 <input id="f-cantinas-pv" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
               </div>
               <div class="field">
-                <label>Cantinas guardadas</label>
+                <label>Guardadas</label>
                 <input id="f-cantinas-guardadas" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
               </div>
               <div class="field">
-                <label>Cuajadas D.C. y mozzarella <span class="lbl-auto">AUTO</span></label>
-                <input id="f-cantinas-dc" class="campo-calc" placeholder="Calculado" readonly
-                       title="Procesadas − pera (sección Queso pera) − P. venta − guardadas">
+                <label>Procesadas <span class="lbl-auto">AUTO</span></label>
+                <input id="f-cantinas-procesadas" class="campo-calc" placeholder="—" readonly
+                       title="Pera + P. venta + Jennos + semiblando + SED (es lo cuajado menos las guardadas)">
               </div>
               <div class="field">
-                <label>Cantinas de leche descremadas</label>
-                <input id="f-cantinas-descremadas" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+                <label>Cantinas de leche <span class="lbl-auto">AUTO</span></label>
+                <input id="f-cantinas-dc" class="campo-calc" placeholder="—" readonly
+                       title="Jennos + semiblando + SED. Es el divisor de los promedios sin crema y global (columna C de SEGUIMIENTO DIARIO)">
               </div>
               <div class="field">
-                <label>% descremado <span class="lbl-auto">AUTO</span></label>
-                <input id="f-pct-descremado" class="campo-calc" placeholder="Calculado" readonly>
+                <label>Promedio sin crema <span class="lbl-auto">AUTO</span></label>
+                <input id="f-promedio-sin-crema" class="campo-calc" placeholder="—" readonly
+                       title="(Total libras − mejoramiento) ÷ cantinas de leche">
               </div>
+
               <div class="field">
                 <label>Cantinas Jennos</label>
                 <input id="f-cant-jennos" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
               </div>
               <div class="field">
-                <label>Litros de crema producida</label>
+                <label>Rend. Jennos <span class="lbl-auto">AUTO</span></label>
+                <input id="f-rend-jennos" class="campo-calc" placeholder="—" readonly
+                       title="Libras realizadas de Jennos ÷ cantinas Jennos">
+              </div>
+              <div class="field">
+                <label>Cantinas semiblando</label>
+                <input id="f-cant-semiblando" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>Rend. semiblando <span class="lbl-auto">AUTO</span></label>
+                <input id="f-rend-semiblando" class="campo-calc" placeholder="—" readonly
+                       title="Libras realizadas de semiblando ÷ cantinas semiblando">
+              </div>
+              <div class="field">
+                <label>Cantinas SED <span class="lbl-auto">AUTO</span></label>
+                <input id="f-cantinas-sed" class="campo-calc" placeholder="—" readonly
+                       title="Cuajadas D.C. y Mz − Jennos − semiblando − guardadas − pera − P. venta">
+              </div>
+              <div class="field">
+                <label>Rend. SED <span class="lbl-auto">AUTO</span></label>
+                <input id="f-rend-sed" class="campo-calc" placeholder="—" readonly
+                       title="(Libras SED − reproceso) ÷ cantinas SED">
+              </div>
+            </div>
+
+            <!-- Crema en una fila, mantequilla en la siguiente -->
+            <div class="sub-titulo">Leche y crema</div>
+            <div class="form-grid form-grid-7">
+              <div class="field">
+                <label>Cantinas descremadas</label>
+                <input id="f-cantinas-descremadas" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+              </div>
+              <div class="field">
+                <label>% descremado <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pct-descremado" class="campo-calc" placeholder="—" readonly
+                       title="Cantinas descremadas ÷ cantinas procesadas">
+              </div>
+              <div class="field">
+                <label>Litros de crema</label>
                 <input id="f-litros-crema" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
               </div>
               <div class="field">
-                <label>Crema de leche pasteurizada</label>
+                <label>Crema pasteurizada</label>
                 <input id="f-crema-pasteurizada" type="number" min="0" step="0.01" placeholder="0">
               </div>
               <div class="field">
-                <label>Rendimiento de crema <span class="lbl-auto">AUTO</span></label>
-                <input id="f-rend-crema" class="campo-calc" placeholder="Calculado" readonly title="Litros de crema ÷ cantinas descremadas">
+                <label>Rend. crema <span class="lbl-auto">AUTO</span></label>
+                <input id="f-rend-crema" class="campo-calc" placeholder="—" readonly title="Litros de crema ÷ cantinas descremadas">
               </div>
-              <div class="field">
+              <div class="field fila-nueva">
                 <label>Litros batidos</label>
                 <input id="f-litros-batidos" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
               </div>
               <div class="field">
-                <label>Libras de mantequilla producidas</label>
+                <label>Libras de mantequilla</label>
                 <input id="f-libras-mantequilla" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
               </div>
               <div class="field">
-                <label>Rendimiento mantequilla <span class="lbl-auto">AUTO</span></label>
-                <input id="f-rend-mantequilla" class="campo-calc" placeholder="Calculado" readonly title="Libras producidas ÷ litros batidos">
+                <label>Rend. mantequilla <span class="lbl-auto">AUTO</span></label>
+                <input id="f-rend-mantequilla" class="campo-calc" placeholder="—" readonly title="Libras producidas ÷ litros batidos">
               </div>
             </div>
-            <div class="form-grid form-grid-4" style="margin-top:16px">
-              <div class="field"><label>Cuajo (g)</label><input id="f-cuajo" type="number" min="0" step="1" placeholder="0"></div>
-              <div class="field"><label>Sal (g)</label><input id="f-sal" type="number" min="0" step="1" placeholder="0"></div>
-              <div class="field"><label>Sal vital (g)</label><input id="f-sal-vital" type="number" min="0" step="1" placeholder="0"></div>
-              <div class="field"><label>Citrato (g)</label><input id="f-citrato" type="number" min="0" step="1" placeholder="0"></div>
-              <div class="field"><label>Blen Max (g)</label><input id="f-blen-max" type="number" min="0" step="1" placeholder="0"></div>
-              <div class="field"><label>Ácido cítrico (g)</label><input id="f-acido-citrico" type="number" min="0" step="1" placeholder="0"></div>
+          </div>
+        </div>
+
+  <!-- ═══ DATOS SIIGO ═══════════════════════════════════════════════════
+       Igual que el bloque B73:O94 de la hoja diaria. Se digitan los insumos
+       TOTALES del día y lo que se gastó en Jennos y en semiblando; el SED
+       (con reproceso) sale solo: total − Jennos − semiblando. La P.P masa y
+       los litros de cada sección también salen solos. -->
+  <div class="card" id="card-siigo">
+          <div class="card-header collapsible" onclick="toggleSection(this)">
+            <span class="card-title">Insumos y datos SIIGO</span>
+            <span class="card-header-right"><span class="card-chevron">▾</span></span>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table class="data-table" id="tabla-siigo">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Total del día</th>
+                    <th class="g-siigo-jen">Jennos</th>
+                    <th class="g-siigo-sbl">Semiblando</th>
+                    <th class="g-siigo-sed">SED <span class="text-muted">(con reproceso)</span> <span class="lbl-auto">AUTO</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="fila-calc">
+                    <td>P.P masa (g)</td>
+                    <td class="mono text-muted">—</td>
+                    <td class="mono g-siigo-jen" id="s-pp-jen">—</td>
+                    <td class="mono g-siigo-sbl" id="s-pp-sbl">—</td>
+                    <td class="mono g-siigo-sed" id="s-pp-sed">—</td>
+                  </tr>
+                  <tr class="fila-calc">
+                    <td>Litros de leche</td>
+                    <td class="mono text-muted">—</td>
+                    <td class="mono g-siigo-jen" id="s-l-jen">—</td>
+                    <td class="mono g-siigo-sbl" id="s-l-sbl">—</td>
+                    <td class="mono g-siigo-sed" id="s-l-sed">—</td>
+                  </tr>
+                  <tr>
+                    <td>Cuajo (g)</td>
+                    <td><input id="f-cuajo" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="g-siigo-jen"><input id="f-jen-cuajo" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="g-siigo-sbl"><input id="f-sbl-cuajo" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="mono g-siigo-sed" id="s-sed-cuajo">—</td>
+                  </tr>
+                  <tr>
+                    <td>Sal (g) <span class="text-muted" style="font-size:11px">· sal vital</span></td>
+                    <td><input id="f-sal-vital" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="g-siigo-jen"><input id="f-jen-sal" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="g-siigo-sbl"><input id="f-sbl-sal" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="mono g-siigo-sed" id="s-sed-sal">—</td>
+                  </tr>
+                  <tr>
+                    <td>Citrato (g)</td>
+                    <td><input id="f-citrato" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="g-siigo-jen"><input id="f-jen-citrato" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="g-siigo-sbl"><input id="f-sbl-citrato" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="mono g-siigo-sed" id="s-sed-citrato">—</td>
+                  </tr>
+                  <tr>
+                    <td>Sorbato (g) <span class="text-muted" style="font-size:11px">· Blen Max</span></td>
+                    <td><input id="f-blen-max" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="g-siigo-jen"><input id="f-jen-sorbato" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="g-siigo-sbl"><input id="f-sbl-sorbato" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="mono g-siigo-sed" id="s-sed-sorbato">—</td>
+                  </tr>
+                  <tr>
+                    <td>Ácido cítrico (g)</td>
+                    <td><input id="f-acido-citrico" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="g-siigo-jen"><input id="f-jen-acido" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="g-siigo-sbl"><input id="f-sbl-acido" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
+                    <td class="mono g-siigo-sed" id="s-sed-acido">—</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+            <div class="aviso-siigo" id="aviso-siigo" style="display:none"></div>
           </div>
         </div>
 
@@ -678,10 +885,10 @@
             <span class="card-header-right"><span class="card-chevron">▾</span></span>
           </div>
           <div class="card-body">
-            <div class="form-grid form-grid-4 section-gap">
+            <div class="form-grid form-grid-7">
               <div class="field">
-                <label>Total libras a fundir <span class="lbl-auto">AUTO</span></label>
-                <input id="f-fundido-total" class="campo-calc" placeholder="Calculado" readonly title="Suma de las libras de la columna Fundido">
+                <label>Libras a fundir <span class="lbl-auto">AUTO</span></label>
+                <input id="f-fundido-total" class="campo-calc" placeholder="—" readonly title="Suma de las libras de la columna Fundido">
               </div>
               <div class="field">
                 <label>Libras fundidas</label>
@@ -689,17 +896,17 @@
               </div>
               <div class="field">
                 <label>Libras de merma <span class="lbl-auto">AUTO</span></label>
-                <input id="f-merma" class="campo-calc" placeholder="Calculado" readonly>
+                <input id="f-merma" class="campo-calc" placeholder="—" readonly>
               </div>
               <div class="field">
                 <label>% de merma <span class="lbl-auto">AUTO</span></label>
-                <input id="f-pct-merma" class="campo-calc" placeholder="Calculado" readonly>
+                <input id="f-pct-merma" class="campo-calc" placeholder="—" readonly>
               </div>
               <div class="field"><label>Blen Max (g)</label><input id="f-fundido-blen-max" type="number" min="0" step="1" placeholder="0"></div>
-              <div class="field"><label>Caseinato de sodio (g)</label><input id="f-fundido-caseinato" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Caseinato (g)</label><input id="f-fundido-caseinato" type="number" min="0" step="1" placeholder="0" title="Caseinato de sodio"></div>
               <div class="field">
                 <label>P.P masa <span class="lbl-auto">AUTO</span></label>
-                <input id="f-pp-masa-fundido" class="campo-calc" placeholder="Calculado" readonly title="Libras a fundir × 500">
+                <input id="f-pp-masa-fundido" class="campo-calc" placeholder="—" readonly title="Libras a fundir × 500">
               </div>
             </div>
           </div>
@@ -711,15 +918,15 @@
             <span class="card-header-right"><span class="card-chevron">▾</span></span>
           </div>
           <div class="card-body">
-            <div class="form-grid form-grid-4 section-gap" id="grid-reproceso"></div>
-            <div class="form-grid form-grid-4" style="margin-top:10px">
+            <div class="form-grid form-grid-7" id="grid-reproceso"></div>
+            <div class="form-grid form-grid-7" style="margin-top:12px">
               <div class="field">
-                <label>Total libras reproceso <span class="lbl-auto">AUTO</span></label>
-                <input id="f-reproceso-total" class="campo-calc" placeholder="Calculado" readonly>
+                <label>Total reproceso <span class="lbl-auto">AUTO</span></label>
+                <input id="f-reproceso-total" class="campo-calc" placeholder="—" readonly>
               </div>
               <div class="field">
                 <label>% de reproceso <span class="lbl-auto">AUTO</span></label>
-                <input id="f-pct-reproceso" class="campo-calc" placeholder="Calculado" readonly title="Reproceso ÷ total libras producidas">
+                <input id="f-pct-reproceso" class="campo-calc" placeholder="—" readonly title="Reproceso ÷ total libras producidas">
               </div>
             </div>
           </div>
@@ -731,26 +938,32 @@
             <span class="card-header-right"><span class="card-chevron">▾</span></span>
           </div>
           <div class="card-body">
-            <div class="form-grid form-grid-4 section-gap">
-              <div class="field"><label>Sal (g)</label><input id="f-pera-sal" type="number" min="0" step="1" placeholder="0"></div>
-              <div class="field"><label>Citrato (g)</label><input id="f-pera-citrato" type="number" min="0" step="1" placeholder="0"></div>
-              <div class="field"><label>Blen Max (g)</label><input id="f-pera-blen-max" type="number" min="0" step="1" placeholder="0"></div>
-              <div class="field"><label>Cuajo (g)</label><input id="f-pera-cuajo" type="number" min="0" step="1" placeholder="0"></div>
+            <!-- Fila 1: la leche y los insumos (la sal sale sola: cantinas × 40,
+                 fórmula D57 = C62*40 de la hoja diaria).
+                 Fila 2: las libras y el promedio. -->
+            <div class="form-grid form-grid-7">
               <div class="field">
-                <label>Cantinas de leche cuajadas</label>
+                <label>Cantinas cuajadas</label>
                 <input id="f-pera-cantinas" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
               </div>
               <div class="field">
                 <label>Litros <span class="lbl-auto">AUTO</span></label>
-                <input id="f-pera-litros" class="campo-calc" placeholder="Calculado" readonly title="Cantinas cuajadas × 40">
+                <input id="f-pera-litros" class="campo-calc" placeholder="—" readonly title="Cantinas cuajadas × 40">
               </div>
               <div class="field">
-                <label>Unidades no conformes</label>
+                <label>Sal (g) <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pera-sal" class="campo-calc" placeholder="—" readonly title="Cantinas cuajadas × 40 (D57 de la hoja diaria)">
+              </div>
+              <div class="field"><label>Citrato (g)</label><input id="f-pera-citrato" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Blen Max (g)</label><input id="f-pera-blen-max" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label>Cuajo (g)</label><input id="f-pera-cuajo" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field fila-nueva">
+                <label>Unid. no conformes</label>
                 <input id="f-pera-no-conformes" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()">
               </div>
               <div class="field">
-                <label>Saldo dosificadora (lb)</label>
-                <input id="f-pera-saldo" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()">
+                <label>Saldo dosif. (lb)</label>
+                <input id="f-pera-saldo" type="number" min="0" step="0.01" placeholder="0" oninput="recalcularProduccion()" title="Saldo de la dosificadora, en libras">
               </div>
               <div class="field">
                 <label>Mejoramiento (lb)</label>
@@ -758,19 +971,19 @@
               </div>
               <div class="field">
                 <label>Total libras <span class="lbl-auto">AUTO</span></label>
-                <input id="f-pera-total-lb" class="campo-calc" placeholder="Calculado" readonly>
+                <input id="f-pera-total-lb" class="campo-calc" placeholder="—" readonly>
               </div>
               <div class="field">
-                <label>Libras sin mejoramiento <span class="lbl-auto">AUTO</span></label>
-                <input id="f-pera-sin-mejoramiento" class="campo-calc" placeholder="Calculado" readonly>
+                <label>Sin mejoramiento <span class="lbl-auto">AUTO</span></label>
+                <input id="f-pera-sin-mejoramiento" class="campo-calc" placeholder="—" readonly title="Libras sin mejoramiento">
               </div>
               <div class="field">
                 <label>Promedio <span class="lbl-auto">AUTO</span></label>
-                <input id="f-pera-promedio" class="campo-calc" placeholder="Calculado" readonly title="Libras sin mejoramiento ÷ cantinas cuajadas">
+                <input id="f-pera-promedio" class="campo-calc" placeholder="—" readonly title="Libras sin mejoramiento ÷ cantinas cuajadas">
               </div>
               <div class="field">
                 <label>P.P masa <span class="lbl-auto">AUTO</span></label>
-                <input id="f-pera-pp-masa" class="campo-calc" placeholder="Calculado" readonly title="Total libras × 500">
+                <input id="f-pera-pp-masa" class="campo-calc" placeholder="—" readonly title="Total libras × 500">
               </div>
             </div>
             <div class="field" style="margin-top:12px">
@@ -820,15 +1033,16 @@
             <table class="data-table" id="tabla-historial">
               <thead>
                 <tr class="grupos">
-                  <th colspan="3"></th>
+                  <th colspan="4"></th>
                   <th colspan="5" class="g-bloques">BLOQUES · QUESO DOBLE CREMA</th>
                   <th colspan="3" class="g-pera col-pera">QUESO PERA</th>
-                  <th colspan="2"></th>
+                  <th colspan="3"></th>
                 </tr>
                 <tr>
                   <th style="width:26px"></th>
                   <th>Fecha</th>
                   <th>Estado</th>
+                  <th>Registró</th>
                   <th>Programado (lb)</th>
                   <th>Producido (lb)</th>
                   <th>% cumpl.</th>
@@ -839,6 +1053,7 @@
                   <th class="col-pera">% cumpl.</th>
                   <th>Litros procesados</th>
                   <th>Promedio</th>
+                  <th>Última edición</th>
                   <th></th>
                 </tr>
               </thead>
@@ -1033,6 +1248,9 @@ window.APP = {
     // El catálogo es solo para administradores
     const admin = document.getElementById('seccion-admin');
     if (admin) admin.style.display = isAdmin() ? '' : 'none';
+    const btnRango = document.getElementById('btn-borrar-rango');
+    if (btnRango) btnRango.style.display = isAdmin() ? '' : 'none';
+    if (!isAdmin()) cerrarBorradoRango();
     refrescarDia();
   },
   alCambiarVista(v) {
@@ -1071,9 +1289,36 @@ const COLS_DIA = ['id_dia','planta','fecha','cantinas_procesadas','cantinas_pv_v
   'cantinas_guardadas','litros_crema_producida','litros_crema_pasteurizada','cantinas_descremadas',
   'litros_batidos','libras_mantequilla','cant_jennos','cuajo_gr','sal_gr','sal_vital_gr',
   'citrato_gr','blen_max_gr','acido_citrico_gr','libras_fundidas','fundido_blen_max_gr',
-  'fundido_caseinato_gr','observaciones','estado','creado_por','fecha_creacion','ultima_edicion'];
+  'fundido_caseinato_gr','observaciones','estado','creado_por','fecha_creacion','ultima_edicion',
+  // Columna NUEVA (octubre 2026): va al final de la hoja PRODUCCION_DIA.
+  // `sal_gr` se deja en la lista aunque ya no se capture, para no desordenar
+  // la hoja ni perder lo que haya guardado de antes.
+  'cant_semiblando','cantinas_dc_mz',
+  // Datos SIIGO (oct. 2026): lo que se gastó de cada insumo en Jennos y en
+  // semiblando. El SED (con reproceso) NO se guarda: es total − Jennos − semiblando.
+  'jen_cuajo_gr','jen_sal_gr','jen_citrato_gr','jen_sorbato_gr','jen_acido_citrico_gr',
+  'sbl_cuajo_gr','sbl_sal_gr','sbl_citrato_gr','sbl_sorbato_gr','sbl_acido_citrico_gr'];
 const COLS_DETALLE = ['id_detalle','id_dia','id_producto','cant_programada','cant_realizada',
-  'cant_fundida','dev_suave','dev_bajo_peso','dev_presentacion','dev_contaminacion','fecha_reg'];
+  'cant_fundida','dev_suave','dev_bajo_peso','dev_presentacion','dev_contaminacion','fecha_reg',
+  // Columnas NUEVAS (formato de producto no conforme de octubre 2026): van al
+  // final de la hoja PRODUCCION_DETALLE, después de `fecha_reg`.
+  'dev_cuarteado','dev_manchado','dev_deforme','dev_humedo'];
+
+// Las ocho causas de no conformidad, en el orden del formato de planta.
+// Una sola lista manda: la cabecera de la tabla, las casillas, lo que se lee,
+// lo que se guarda y el borrador salen todos de aquí.
+const CAUSAS_NC = [
+  { col: 'dev_cuarteado',     cls: 'd-cuart', titulo: 'Cuarteado'  },
+  { col: 'dev_manchado',      cls: 'd-manch', titulo: 'Manchado'   },
+  { col: 'dev_deforme',       cls: 'd-def',   titulo: 'Deforme'    },
+  { col: 'dev_suave',         cls: 'd-suave', titulo: 'Suave'      },
+  { col: 'dev_bajo_peso',     cls: 'd-peso',  titulo: 'Bajo peso'  },
+  { col: 'dev_humedo',        cls: 'd-hum',   titulo: 'Húmedo'     },
+  { col: 'dev_presentacion',  cls: 'd-pres',  titulo: 'Present.'   },
+  { col: 'dev_contaminacion', cls: 'd-cont',  titulo: 'Contam.'    }
+];
+const COLS_NC = CAUSAS_NC.map(c => c.col);
+const sumaNoConformes = f => COLS_NC.reduce((t, c) => t + num(f[c]), 0);
 const COLS_REPROCESO = ['id_reproceso','id_dia','origen','libras','fecha_reg'];
 const COLS_PERA = ['id_pera','id_dia','sal_gr','citrato_gr','blen_max_gr','cuajo_gr',
   'cantinas_cuajadas','unid_no_conformes','saldo_dosificadora','mejoramiento_lb','observaciones'];
@@ -1370,10 +1615,30 @@ const celdaDe = v => {
 };
 const filaDe = (obj, columnas) => ({ values: objToRow(obj, columnas).map(celdaDe) });
 
+// La columna del identificador, en la letra que le toque EN LA HOJA. Antes
+// estaban escritas a mano (`A:A`, `B:B`): si alguien movía una columna de
+// sitio, la página no encontraba el día y lo volvía a agregar en vez de
+// sobrescribirlo. Ahora la letra sale del orden real leído en la fila 1.
+const LETRA = i => {
+  let s = '';
+  for (i += 1; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s;
+  return s;
+};
+function rangoId(hoja, porDefecto, columna) {
+  const i = cols(hoja, porDefecto).indexOf(columna);
+  const L = LETRA(i < 0 ? porDefecto.indexOf(columna) : i);
+  return `${hoja}!${L}:${L}`;
+}
+const RANGOS_ID = () => [
+  rangoId(HOJA_DIA,       COLS_DIA,       'id_dia'),
+  rangoId(HOJA_DETALLE,   COLS_DETALLE,   'id_dia'),
+  rangoId(HOJA_REPROCESO, COLS_REPROCESO, 'id_dia'),
+  rangoId(HOJA_PERA,      COLS_PERA,      'id_dia')
+];
+
 // Dónde está cada fila del día, en una sola lectura de las cuatro columnas de id
 async function ubicarDia(id) {
-  const rangos = [`${HOJA_DIA}!A:A`, `${HOJA_DETALLE}!B:B`,
-                  `${HOJA_REPROCESO}!B:B`, `${HOJA_PERA}!B:B`];
+  const rangos = RANGOS_ID();
   const d = await pedir(`${URL_HOJA}/values:batchGet?` +
     rangos.map(r => 'ranges=' + encodeURIComponent(r)).join('&') +
     '&valueRenderOption=UNFORMATTED_VALUE', {});
@@ -1446,7 +1711,8 @@ async function escribirCabeceras(lista) {
   await asegurarSheetIds();
   const cd = cols(HOJA_DIA, COLS_DIA);
   const d = await pedir(`${URL_HOJA}/values/` +
-    `${encodeURIComponent(HOJA_DIA + '!A:A')}?valueRenderOption=UNFORMATTED_VALUE`, {});
+    `${encodeURIComponent(rangoId(HOJA_DIA, COLS_DIA, 'id_dia'))}` +
+    '?valueRenderOption=UNFORMATTED_VALUE', {});
   const filaDeId = new Map();
   (d.values || []).forEach((f, i) => { if (i > 0) filaDeId.set(String(f[0] ?? '').trim(), i); });
 
@@ -1464,6 +1730,33 @@ async function escribirCabeceras(lista) {
 }
 
 const escribirCabecera = dia => escribirCabeceras([dia]);
+
+// Varios días de un tirón. Mismo trato que un día suelto: una lectura para
+// ubicar las filas y UN batchUpdate con todos los borrados, así Google lo
+// aplica entero o no lo aplica.
+async function borrarDiasDeLaHoja(ids) {
+  if (!ids.length) return;
+  await asegurarSheetIds();
+  const buscados = new Set(ids);
+  const rangos = RANGOS_ID();
+  const d = await pedir(`${URL_HOJA}/values:batchGet?` +
+    rangos.map(r => 'ranges=' + encodeURIComponent(r)).join('&') +
+    '&valueRenderOption=UNFORMATTED_VALUE', {});
+  const indices = vr => {
+    const out = [];
+    (vr?.values || []).forEach((f, i) => {
+      if (i > 0 && buscados.has(String(f[0] ?? '').trim())) out.push(i);
+    });
+    return out;
+  };
+  const [vd, vdet, vrep, vper] = d.valueRanges || [];
+  const req = [];
+  pedirBorrado(req, HOJA_DETALLE,   indices(vdet));
+  pedirBorrado(req, HOJA_REPROCESO, indices(vrep));
+  pedirBorrado(req, HOJA_PERA,      indices(vper));
+  pedirBorrado(req, HOJA_DIA,       indices(vd));
+  if (req.length) await pedir(`${URL_HOJA}:batchUpdate`, JSON_POST({ requests: req }));
+}
 
 async function borrarTodoElDia(id) {
   await asegurarSheetIds();
@@ -1486,7 +1779,7 @@ function filasDetalle(id, cambios) {
     Object.assign(f, c);
     previas.set(c.id_producto, f);
   });
-  const datos = COLS_DETALLE.slice(3, 10);   // de cant_programada a dev_contaminacion
+  const datos = ['cant_programada','cant_realizada','cant_fundida', ...COLS_NC];
   const orden = id2 => {
     const i = catalogo.findIndex(p => p.id_producto === id2);
     return i < 0 ? 999 : i;
@@ -1545,6 +1838,57 @@ document.addEventListener('paste', e => {
   e.preventDefault();
   el.value = String(num(texto));
   el.dispatchEvent(new Event('input', { bubbles: true }));
+});
+
+// ── Moverse por la tabla con el teclado ─────────────────────────────────
+// En una tabla de captura lo natural es bajar por la MISMA columna: se digita
+// destino por destino, no fila por fila. Así que Tab, Enter y la flecha abajo
+// BAJAN; Mayús+Tab, Mayús+Enter y la flecha arriba suben. Al llegar al final
+// de una columna, Tab salta al principio de la siguiente, como en una hoja de
+// cálculo. Las flechas izquierda y derecha se dejan quietas: mueven el cursor
+// dentro del número, que es lo que uno espera al corregir un dígito.
+function celdasDeColumna(tbody, clase) {
+  // Solo las filas VISIBLES: con el filtro "ver solo los productos en uso"
+  // puesto, bajar tiene que saltarse las ocultas.
+  return [...tbody.querySelectorAll('tr')]
+    .filter(tr => tr.style.display !== 'none')
+    .map(tr => tr.querySelector('.' + clase))
+    .filter(el => el && !el.readOnly && !el.disabled);
+}
+
+function moverEnTabla(el, paso, saltarDeColumna) {
+  const tbody = el.closest('tbody');
+  if (!tbody) return false;
+  const clase = [...el.classList].find(c => c !== 'campo-malo');
+  if (!clase) return false;
+  const columna = celdasDeColumna(tbody, clase);
+  const i = columna.indexOf(el);
+  if (i < 0) return false;
+
+  const sig = columna[i + paso];
+  if (sig) { sig.focus(); sig.select?.(); return true; }
+  if (!saltarDeColumna) return false;
+
+  // Fin (o principio) de la columna: pasar a la siguiente que tenga casillas
+  const clases = [...new Set([...tbody.querySelectorAll('input:not([readonly]):not([disabled])')]
+    .map(x => [...x.classList].find(c => c !== 'campo-malo')).filter(Boolean))];
+  const otra = celdasDeColumna(tbody, clases[clases.indexOf(clase) + paso]);
+  if (!otra.length) return false;
+  const destino = paso > 0 ? otra[0] : otra[otra.length - 1];
+  destino.focus(); destino.select?.();
+  return true;
+}
+
+document.addEventListener('keydown', e => {
+  const el = e.target;
+  if (!el || el.tagName !== 'INPUT' || el.readOnly) return;
+  if (!el.closest('#tbody-produccion, #tbody-programacion')) return;
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  const paso = e.shiftKey ? -1 : 1;
+  if (e.key === 'Tab')        { if (moverEnTabla(el, paso, true))  e.preventDefault(); return; }
+  if (e.key === 'Enter')      { if (moverEnTabla(el, paso, false)) e.preventDefault(); return; }
+  if (e.key === 'ArrowDown')  { if (moverEnTabla(el,  1, false))   e.preventDefault(); return; }
+  if (e.key === 'ArrowUp')    { if (moverEnTabla(el, -1, false))   e.preventDefault(); }
 });
 
 // ── Validación en pantalla, antes de guardar ─────────────────────────────
@@ -1687,12 +2031,11 @@ function renderTablaProduccion() {
         ${bloque
           ? `<td class="g-fundido sep-ini"><input class="c-fund" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
              <td class="g-fundido mono lb-fund text-muted">—</td>
-             <td class="g-devol sep-ini"><input class="d-suave" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
-             <td class="g-devol"><input class="d-peso" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
-             <td class="g-devol"><input class="d-pres" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>
-             <td class="g-devol sep-fin"><input class="d-cont" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>`
-          : raya('g-fundido sep-ini') + raya('g-fundido') + raya('g-devol sep-ini') +
-            raya('g-devol') + raya('g-devol') + raya('g-devol sep-fin')}
+             ${CAUSAS_NC.map((c, i) =>
+               `<td class="g-devol${i === 0 ? ' sep-ini' : ''}${i === CAUSAS_NC.length - 1 ? ' sep-fin' : ''}"><input class="${c.cls}" type="number" min="0" step="1" placeholder="0" oninput="recalcularProduccion()"></td>`).join('')}`
+          : raya('g-fundido sep-ini') + raya('g-fundido') +
+            CAUSAS_NC.map((c, i) => raya('g-devol' + (i === 0 ? ' sep-ini' : '') +
+              (i === CAUSAS_NC.length - 1 ? ' sep-fin' : ''))).join('')}
         <td class="mono efectivas">—</td>
       </tr>`;
   }).join('');
@@ -1733,8 +2076,7 @@ function refrescarDia() {
     celda.classList.toggle('text-muted', !prog);
     const poner = (cls, v) => { const el = tr.querySelector('.' + cls); if (el) el.value = (f && v) ? v : ''; };
     poner('c-real', f?.cant_realizada); poner('c-fund', f?.cant_fundida);
-    poner('d-suave', f?.dev_suave);     poner('d-peso', f?.dev_bajo_peso);
-    poner('d-pres', f?.dev_presentacion); poner('d-cont', f?.dev_contaminacion);
+    CAUSAS_NC.forEach(c => poner(c.cls, f?.[c.col]));
   });
 
   document.querySelectorAll('.r-lb').forEach(el => {
@@ -1743,21 +2085,25 @@ function refrescarDia() {
   });
 
   const campos = {
-    'f-cantinas-procesadas': dia?.cantinas_procesadas, 'f-cantinas-pv': dia?.cantinas_pv_venta_bocados,
+    'f-cantinas-dc-mz': cuajadasDcMz(dia), 'f-cantinas-pv': dia?.cantinas_pv_venta_bocados,
     'f-cantinas-guardadas': dia?.cantinas_guardadas, 'f-cantinas-descremadas': dia?.cantinas_descremadas,
     'f-cant-jennos': dia?.cant_jennos, 'f-litros-crema': dia?.litros_crema_producida,
     'f-crema-pasteurizada': dia?.litros_crema_pasteurizada, 'f-litros-batidos': dia?.litros_batidos,
-    'f-libras-mantequilla': dia?.libras_mantequilla, 'f-cuajo': dia?.cuajo_gr, 'f-sal': dia?.sal_gr,
+    'f-cant-semiblando': dia?.cant_semiblando,
+    'f-libras-mantequilla': dia?.libras_mantequilla, 'f-cuajo': dia?.cuajo_gr,
     'f-sal-vital': dia?.sal_vital_gr, 'f-citrato': dia?.citrato_gr, 'f-blen-max': dia?.blen_max_gr,
     'f-acido-citrico': dia?.acido_citrico_gr, 'f-libras-fundidas': dia?.libras_fundidas,
     'f-fundido-blen-max': dia?.fundido_blen_max_gr, 'f-fundido-caseinato': dia?.fundido_caseinato_gr,
     'f-observaciones': dia?.observaciones,
-    'f-pera-sal': pera?.sal_gr, 'f-pera-citrato': pera?.citrato_gr,
+    'f-pera-citrato': pera?.citrato_gr,
     'f-pera-blen-max': pera?.blen_max_gr, 'f-pera-cuajo': pera?.cuajo_gr,
     'f-pera-cantinas': pera?.cantinas_cuajadas, 'f-pera-no-conformes': pera?.unid_no_conformes,
     'f-pera-saldo': pera?.saldo_dosificadora, 'f-pera-mejoramiento': pera?.mejoramiento_lb,
     'f-pera-observaciones': pera?.observaciones
   };
+  Object.entries(CAMPOS_DIA).forEach(([col, id]) => {
+    if (/^(jen|sbl)_/.test(col)) campos[id] = dia?.[col];
+  });
   Object.entries(campos).forEach(([id, v]) => set(id, v ?? ''));
 
   document.getElementById('aviso-sin-programacion').style.display =
@@ -1782,7 +2128,7 @@ function recalcularProduccion() {
     tr.querySelector('.lb-real').textContent = real ? lb1(lbReal) : '—';
     const cf = tr.querySelector('.lb-fund');
     if (cf) cf.textContent = fund ? lb1(lbFund) : '—';
-    const noConformes = q('d-suave') + q('d-peso') + q('d-pres') + q('d-cont');
+    const noConformes = CAUSAS_NC.reduce((t, c) => t + q(c.cls), 0);
     const ef = tr.querySelector('.efectivas');
     ef.textContent = (real || fund) ? ent(real + fund - noConformes) : '—';
     ef.classList.toggle('text-muted', !(real || fund));
@@ -1825,17 +2171,81 @@ function recalcularProduccion() {
   set('f-pp-masa-fundido', totalFund ? lb1(totalFund * LB_POR_GRAMOS) : '');
 
   // Cantinas: las de pera vienen de la sección Queso pera, no se piden dos veces
-  const proc = val('f-cantinas-procesadas');
-  const cantinasPera = val('f-pera-cantinas');
-  const dc = proc - cantinasPera - val('f-cantinas-pv') - val('f-cantinas-guardadas');
-  set('f-cantinas-dc', proc ? lb1(dc) : '');
-  set('f-pct-descremado', pct(val('f-cantinas-descremadas'), proc));
+  const C = repartoCantinas({
+    dcMz:       val('f-cantinas-dc-mz'),
+    pera:       val('f-pera-cantinas'),
+    pv:         val('f-cantinas-pv'),
+    jennos:     val('f-cant-jennos'),
+    semiblando: val('f-cant-semiblando'),
+    guardadas:  val('f-cantinas-guardadas')
+  });
+  const hayCantinas = C.dcMz > 0;
+  const cantinasPera = C.pera;
+  set('f-cantinas-pera-eco', C.pera ? lb1(C.pera) : '');
+  set('f-cantinas-sed',        hayCantinas ? lb1(C.sed) : '');
+  set('f-cantinas-procesadas', hayCantinas ? lb1(C.procesadas) : '');
+  set('f-cantinas-dc',         hayCantinas ? lb1(C.deLeche) : '');
+  set('f-pct-descremado', pct(val('f-cantinas-descremadas'), C.procesadas));
   const descremadas = val('f-cantinas-descremadas');
   set('f-rend-crema', descremadas ? lb1(val('f-litros-crema') / descremadas) : '');
   const batidos = val('f-litros-batidos');
   set('f-rend-mantequilla', batidos ? lb1(val('f-libras-mantequilla') / batidos) : '');
 
+  // Libras realizadas por destino, para los rendimientos de la misma pantalla
+  const lbDe = idProd => {
+    let t = 0;
+    document.querySelectorAll('#tbody-produccion tr').forEach(tr => {
+      if (tr.dataset.producto !== idProd) return;
+      t += num(tr.querySelector('.c-real')?.value) * num(tr.dataset.gramaje) / LB_POR_GRAMOS;
+    });
+    return t;
+  };
+  const lbSb = lbDe(ID_SEMIBLANDO), lbJn = lbDe(ID_JENNOS);
+  set('f-rend-semiblando', C.semiblando ? lb1(lbSb / C.semiblando) : '');   // J49
+  set('f-rend-jennos',     C.jennos     ? lb1(lbJn / C.jennos)     : '');   // H48
+  // J48: (libras SED − reproceso) ÷ cantinas SED. Las libras SED son lo
+  // realizado de bloques menos jennos y semiblando, igual que en `totalesDia`.
+  const lbSed = lbBloq - totalFund - lbSb - lbJn;
+  set('f-rend-sed', C.sed > 0 ? lb1((lbSed - reproceso) / C.sed) : '');
+
+  // ── Datos SIIGO ──
+  // P.P masa = libras REALIZADAS × 500 (sin fundido y sin restar reproceso:
+  // por eso dice "con reproceso"). Litros = cantinas × 40.
+  const celda = (id, v, neg) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = v;
+    el.classList.toggle('negativo', !!neg);
+  };
+  const lbFueraSiigo = FUERA_DE_SIIGO_SED.reduce((t, idp) => t + lbDe(idp), 0);
+  const lbSiigoSed = lbBloq - totalFund - lbFueraSiigo;
+  const gramos = lb => lb ? ent(lb * LB_POR_GRAMOS) : '—';
+  const litros = c => c ? ent(c * LITROS_POR_CANTINA) : '—';
+  celda('s-pp-sed', gramos(lbSiigoSed));   celda('s-l-sed', hayCantinas ? litros(C.sed) : '—', C.sed < 0);
+  celda('s-pp-jen', gramos(lbJn));         celda('s-l-jen', litros(C.jennos));
+  celda('s-pp-sbl', gramos(lbSb));         celda('s-l-sbl', litros(C.semiblando));
+  const negativos = [];
+  INSUMOS_SIIGO.forEach(([clave, tot, jen, sbl]) => {
+    const vacio = [tot, jen, sbl].every(id => !String(document.getElementById(id)?.value ?? '').trim());
+    const sed = val(tot) - val(jen) - val(sbl);
+    if (sed < 0) negativos.push(clave);
+    celda('s-sed-' + clave, vacio ? '—' : ent(sed), sed < 0);
+  });
+  const aviso = document.getElementById('aviso-siigo');
+  if (aviso) {
+    aviso.style.display = negativos.length ? '' : 'none';
+    aviso.textContent = negativos.length
+      ? `Lo de Jennos y semiblando supera el total del día en: ${negativos.join(', ')}. Revisa el total.`
+      : '';
+  }
+  // J30 / columna T de SEGUIMIENTO DIARIO
+  // Ojo: va sobre lo REALIZADO, sin el fundido (J25 suma la columna de
+  // realizados; el fundido vive en su propio bloque, T25).
+  set('f-promedio-sin-crema',
+      C.deLeche > 0 ? lb1((lbBloq - totalFund - reproceso) / C.deLeche) : '');
+
   set('f-pera-litros', cantinasPera ? lb1(cantinasPera * LITROS_POR_CANTINA) : '');
+  set('f-pera-sal', cantinasPera ? ent(salPera(cantinasPera)) : '');
   let peraLb = 0;
   document.querySelectorAll('#tbody-produccion tr').forEach(tr => {
     if (tr.dataset.bloque === '1') return;
@@ -1869,20 +2279,48 @@ function limpiarProduccion() {
   recalcularProduccion();
 }
 
+// ── Cómo se reparten las cantinas (hoja diaria del Excel, octubre 2026) ──
+// Lo que se DIGITA es J29, `CANTINAS CUAJADAS D.C Y MOZZARELLA`: el total
+// cuajado del día, pera y P. venta incluidas. De ahí salen solas:
+//   SED        J45 = J29 − jennos − semiblando − guardadas − pera − P.venta
+//   procesadas J51 = pera + P.venta + jennos + semiblando + SED  (= J29 − guardadas)
+//   de leche        = jennos + semiblando + SED  (columna C de SEGUIMIENTO
+//                     DIARIO = J29 − pera − P.venta − guardadas). Es el divisor
+//                     de los promedios sin crema y global.
+// Antes la página pedía las PROCESADAS y calculaba lo demás, que es justo al
+// revés de como quedó la hoja; con cantinas guardadas distintas de cero los
+// promedios no cuadraban.
+function repartoCantinas({ dcMz, pera, pv, jennos, semiblando, guardadas }) {
+  const sed = dcMz - jennos - semiblando - guardadas - pera - pv;
+  return { dcMz, pera, pv, jennos, semiblando, guardadas, sed,
+           procesadas: pera + pv + jennos + semiblando + sed,
+           deLeche:    jennos + semiblando + sed };
+}
+
+// Días guardados antes del cambio no traen `cantinas_dc_mz`: se reconstruye
+// desde las procesadas de entonces, que eran J51 = J29 − guardadas.
+const cuajadasDcMz = dia => num(dia?.cantinas_dc_mz)
+  || (num(dia?.cantinas_procesadas) + num(dia?.cantinas_guardadas)) || '';
+
 // Los campos del día y los del queso pera, con la columna de la hoja a la que
 // va cada uno. En estas dos secciones un campo en blanco se guarda como 0.
 const CAMPOS_DIA = {
-  cantinas_procesadas: 'f-cantinas-procesadas', cantinas_pv_venta_bocados: 'f-cantinas-pv',
+  cantinas_dc_mz: 'f-cantinas-dc-mz', cantinas_pv_venta_bocados: 'f-cantinas-pv',
   cantinas_guardadas: 'f-cantinas-guardadas', litros_crema_producida: 'f-litros-crema',
   litros_crema_pasteurizada: 'f-crema-pasteurizada', cantinas_descremadas: 'f-cantinas-descremadas',
   litros_batidos: 'f-litros-batidos', libras_mantequilla: 'f-libras-mantequilla',
-  cant_jennos: 'f-cant-jennos', cuajo_gr: 'f-cuajo', sal_gr: 'f-sal',
-  sal_vital_gr: 'f-sal-vital', citrato_gr: 'f-citrato', blen_max_gr: 'f-blen-max',
+  cant_jennos: 'f-cant-jennos', cant_semiblando: 'f-cant-semiblando',
+  cuajo_gr: 'f-cuajo', sal_vital_gr: 'f-sal-vital', citrato_gr: 'f-citrato', blen_max_gr: 'f-blen-max',
   acido_citrico_gr: 'f-acido-citrico', libras_fundidas: 'f-libras-fundidas',
-  fundido_blen_max_gr: 'f-fundido-blen-max', fundido_caseinato_gr: 'f-fundido-caseinato'
+  fundido_blen_max_gr: 'f-fundido-blen-max', fundido_caseinato_gr: 'f-fundido-caseinato',
+  jen_cuajo_gr: 'f-jen-cuajo', jen_sal_gr: 'f-jen-sal', jen_citrato_gr: 'f-jen-citrato',
+  jen_sorbato_gr: 'f-jen-sorbato', jen_acido_citrico_gr: 'f-jen-acido',
+  sbl_cuajo_gr: 'f-sbl-cuajo', sbl_sal_gr: 'f-sbl-sal', sbl_citrato_gr: 'f-sbl-citrato',
+  sbl_sorbato_gr: 'f-sbl-sorbato', sbl_acido_citrico_gr: 'f-sbl-acido'
 };
+// La sal del pera ya no está aquí: es cantinas × 40 y se guarda calculada.
 const CAMPOS_PERA = {
-  sal_gr: 'f-pera-sal', citrato_gr: 'f-pera-citrato', blen_max_gr: 'f-pera-blen-max',
+  citrato_gr: 'f-pera-citrato', blen_max_gr: 'f-pera-blen-max',
   cuajo_gr: 'f-pera-cuajo', cantinas_cuajadas: 'f-pera-cantinas',
   unid_no_conformes: 'f-pera-no-conformes', saldo_dosificadora: 'f-pera-saldo',
   mejoramiento_lb: 'f-pera-mejoramiento'
@@ -1906,12 +2344,12 @@ function cambiosProduccion() {
       const v = el.value.trim();
       return v === '' ? '' : num(v);
     };
-    return {
+    const fila = {
       id_producto: tr.dataset.producto,
-      cant_realizada: g('c-real'), cant_fundida: g('c-fund'),
-      dev_suave: g('d-suave'), dev_bajo_peso: g('d-peso'),
-      dev_presentacion: g('d-pres'), dev_contaminacion: g('d-cont')
+      cant_realizada: g('c-real'), cant_fundida: g('c-fund')
     };
+    CAUSAS_NC.forEach(c => { fila[c.col] = g(c.cls); });
+    return fila;
   });
 }
 
@@ -1955,6 +2393,13 @@ async function guardarDia(desde) {
   // porque el dato existe y vale cero (a diferencia de programación,
   // producción y reproceso, donde en blanco significa "no aplica").
   Object.entries(CAMPOS_DIA).forEach(([col, campo]) => { dia[col] = val(campo); });
+  // Las procesadas ya no se digitan: se guardan calculadas, para que la hoja
+  // siga teniendo la columna con el mismo significado que antes.
+  dia.cantinas_procesadas = repartoCantinas({
+    dcMz: val('f-cantinas-dc-mz'), pera: val('f-pera-cantinas'),
+    pv: val('f-cantinas-pv'), jennos: val('f-cant-jennos'),
+    semiblando: val('f-cant-semiblando'), guardadas: val('f-cantinas-guardadas')
+  }).procesadas;
   dia.observaciones = txt('f-observaciones');
   // Un día recién programado queda PROGRAMADO; pasa a ABIERTO en cuanto hay
   // algo cortado, y CERRADO manda siempre.
@@ -1977,6 +2422,8 @@ async function guardarDia(desde) {
   // 4. Queso pera: una sola fila por día, siempre, y con 0 donde no se digitó
   const pera = { ...filaVacia(COLS_PERA), id_pera: `${id}_P`, id_dia: id };
   Object.entries(CAMPOS_PERA).forEach(([col, campo]) => { pera[col] = val(campo); });
+  // D57 de la hoja diaria: sal del queso pera = cantinas cuajadas × 40 g
+  pera.sal_gr = salPera(val('f-pera-cantinas'));
   pera.observaciones = txt('f-pera-observaciones');
   const peraFilas = [pera];
 
@@ -2203,6 +2650,83 @@ async function borrarDia() {
   toast('Día eliminado.');
 }
 
+// ── Eliminar registros por rango de fechas (solo ADMIN) ─────────────────
+// Antes había que entrar día por día y darle a "Eliminar el día". Esto hace
+// lo mismo sobre un rango, pero sin salir de donde se esté y en una sola
+// escritura: o se borran todos o no se borra ninguno.
+function diasEnRango() {
+  const desde = sel('br-desde')?.value || '';
+  const hasta = sel('br-hasta')?.value || '';
+  if (!desde || !hasta || desde > hasta) return null;
+  return dias.filter(d => {
+    const f = String(d.fecha || '').slice(0, 10);
+    return f >= desde && f <= hasta;
+  }).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+}
+
+function contarBorradoRango() {
+  const aviso = sel('br-aviso'), boton = sel('br-confirmar');
+  const lista = diasEnRango();
+  if (!lista) {
+    aviso.className = 'panel-rango-aviso';
+    aviso.textContent = (sel('br-desde').value && sel('br-hasta').value)
+      ? 'La fecha "desde" tiene que ser anterior o igual a la de "hasta".'
+      : 'Elige las dos fechas.';
+    boton.disabled = true;
+    return;
+  }
+  const cerrados = lista.filter(d => d.estado === ESTADO.CERRADO).length;
+  if (!lista.length) {
+    aviso.className = 'panel-rango-aviso';
+    aviso.textContent = 'No hay ningún día registrado en ese rango.';
+    boton.disabled = true;
+    return;
+  }
+  aviso.className = 'panel-rango-aviso peligro';
+  aviso.textContent = `Se eliminarán ${lista.length} día(s)` +
+    (cerrados ? `, ${cerrados} de ellos cerrado(s)` : '') +
+    `: del ${fmtFecha(lista[0].fecha)} al ${fmtFecha(lista[lista.length - 1].fecha)}. ` +
+    'Se borra todo: programación, producción, reproceso y queso pera.';
+  boton.disabled = false;
+}
+
+function abrirBorradoRango() {
+  if (!isAdmin()) return toast('Solo los administradores pueden eliminar registros.', 'error');
+  sel('panel-rango').classList.add('abierto');
+  contarBorradoRango();
+}
+
+function cerrarBorradoRango() {
+  const p = sel('panel-rango');
+  if (p) p.classList.remove('abierto');
+}
+
+async function borrarRangoFechas() {
+  if (!isAdmin()) return toast('Solo los administradores pueden eliminar registros.', 'error');
+  const lista = diasEnRango();
+  if (!lista || !lista.length) return;
+  const rango = `${fmtFecha(lista[0].fecha)} – ${fmtFecha(lista[lista.length - 1].fecha)}`;
+  if (!confirm(`¿Eliminar ${lista.length} día(s) (${rango})? No se puede deshacer.`)) return;
+
+  const ids = lista.map(d => d.id_dia);
+  if (hayHoja()) {
+    const ok = await conBloqueo(`Eliminando ${ids.length} día(s)`,
+                                () => borrarDiasDeLaHoja(ids));
+    if (!ok) return;
+  }
+  const fuera = new Set(ids);
+  dias       = dias.filter(d => !fuera.has(d.id_dia));
+  detalle    = detalle.filter(d => !fuera.has(d.id_dia));
+  reprocesos = reprocesos.filter(r => !fuera.has(r.id_dia));
+  peras      = peras.filter(x => !fuera.has(x.id_dia));
+
+  cerrarBorradoRango();
+  refrescarDia();
+  renderHistorialHonda();
+  if (typeof poblarFiltros === 'function') { poblarFiltros('h'); poblarFiltros('d'); }
+  toast(`${ids.length} día(s) eliminado(s).`);
+}
+
 // Desde el historial: abre un día en el registro, en la pestaña que se pida
 function abrirDia(fecha, tab) {
   set('f-fecha', fecha);
@@ -2225,7 +2749,31 @@ function abrirDia(fecha, tab) {
 // Moneda la incluyen en esa fórmula (4, 12, 18 y 28); los días que no la
 // incluyen son justamente los que produjeron cero.
 const ID_JENNOS = 'JEN-2500';
-const FUERA_DE_SED = ['JEN-2500', 'DUR-2500'];
+const ID_SEMIBLANDO = 'SBL-2500';
+// Cambio de octubre 2026. En las hojas diarias del Excel nuevo:
+//   J46 LIBRAS PRODUCIDAS SED = J9+J10+J11+J12+J13+J14+J15+J17+J18+J20+…+J24
+// es decir, quedan fuera SOLO la fila 16 (SEMIBLANDO DON M.) y la 19 (JENNOS
+// PIZZA). El DURO, que antes estaba fuera, ahora SÍ cuenta dentro del SED.
+// Comprobado en las 31 hojas del libro de octubre: la fórmula es idéntica.
+const FUERA_DE_SED = [ID_JENNOS, ID_SEMIBLANDO];
+
+// DATOS SIIGO (CON REPROCESO), B75 de la hoja diaria:
+//   =(J9+J10+J11+J12+J13+J14+J15+J17+J20+J21+J22+J23+J24)*500
+// Además de Jennos (J19) y semiblando (J16) deja fuera el DURO (J18), que
+// tampoco tiene renglón en la tabla de productos del SIIGO. Ojo: J46, las
+// libras SED del RENDIMIENTO, sí lo incluye. Las dos fórmulas son así en las
+// 31 hojas de octubre; si el Duro debe ir al SIIGO, se quita de esta lista.
+const FUERA_DE_SIIGO_SED = [ID_JENNOS, ID_SEMIBLANDO, 'DUR-2500'];
+// D57 de la hoja diaria: sal del queso pera = cantinas cuajadas × 40 g
+const salPera = cantinas => num(cantinas) * 40;
+// Los insumos que se reparten en el SIIGO: [fila, total del día, Jennos, semiblando]
+const INSUMOS_SIIGO = [
+  ['cuajo',   'f-cuajo',         'f-jen-cuajo',   'f-sbl-cuajo'],
+  ['sal',     'f-sal-vital',     'f-jen-sal',     'f-sbl-sal'],
+  ['citrato', 'f-citrato',       'f-jen-citrato', 'f-sbl-citrato'],
+  ['sorbato', 'f-blen-max',      'f-jen-sorbato', 'f-sbl-sorbato'],
+  ['acido',   'f-acido-citrico', 'f-jen-acido',   'f-sbl-acido']
+];
 const esPera = id => String(id).startsWith('PERA-');
 
 // Unidades efectivas de una fila: lo cortado menos lo no conforme.
@@ -2234,14 +2782,13 @@ const esPera = id => String(id).startsWith('PERA-');
 function efectivasDe(f) {
   const cortado = num(f.cant_realizada) + num(f.cant_fundida);
   if (esPera(f.id_producto)) return num(f.cant_realizada);
-  const noConf = num(f.dev_suave) + num(f.dev_bajo_peso)
-               + num(f.dev_presentacion) + num(f.dev_contaminacion);
-  return cortado - noConf;
+  return cortado - sumaNoConformes(f);
 }
 
 function totalesDia(dia) {
   const filas = detalleDeDia(dia.id_dia);
-  let prog = 0, real = 0, fund = 0, lbJennos = 0, lbFueraSed = 0, lbPera = 0, progPera = 0;
+  let prog = 0, real = 0, fund = 0, lbJennos = 0, lbSemiblando = 0,
+      lbFueraSed = 0, lbPera = 0, progPera = 0;
   let bloquesReal = 0, efecBloques = 0, efecPera = 0;
   let uPeraReal = 0, uPeraProg = 0;
   filas.forEach(f => {
@@ -2264,6 +2811,7 @@ function totalesDia(dia) {
       // Excel: `TOTAL LIBRAS` de la columna de realizados menos el reproceso).
       bloquesReal += lbReal;
       if (f.id_producto === ID_JENNOS) lbJennos += lbReal;
+      if (f.id_producto === ID_SEMIBLANDO) lbSemiblando += lbReal;
       if (FUERA_DE_SED.includes(f.id_producto)) lbFueraSed += lbReal;
     }
   });
@@ -2274,11 +2822,19 @@ function totalesDia(dia) {
                           .reduce((t, r) => t + num(r.libras), 0);
   const pera = peras.find(x => x.id_dia === dia.id_dia);
 
-  const cantinasPera = num(pera?.cantinas_cuajadas);
-  const cantinasDcMz = num(dia.cantinas_procesadas) - cantinasPera
-                     - num(dia.cantinas_pv_venta_bocados) - num(dia.cantinas_guardadas);
-  const cantinasJennos = num(dia.cant_jennos);
-  const cantinasSed = cantinasDcMz - cantinasJennos;
+  const C = repartoCantinas({
+    dcMz:       num(cuajadasDcMz(dia)),
+    pera:       num(pera?.cantinas_cuajadas),
+    pv:         num(dia.cantinas_pv_venta_bocados),
+    jennos:     num(dia.cant_jennos),
+    semiblando: num(dia.cant_semiblando),
+    guardadas:  num(dia.cantinas_guardadas)
+  });
+  const cantinasPera = C.pera, cantinasJennos = C.jennos;
+  const cantinasSemiblando = C.semiblando, cantinasSed = C.sed;
+  // `cantinasDcMz` sigue llamándose así por compatibilidad, pero es la columna
+  // C de SEGUIMIENTO DIARIO: jennos + semiblando + SED.
+  const cantinasDcMz = C.deLeche;
   const lbSed = bloquesReal - lbFueraSed;
   // El total de libras de pera incluye las unidades no conformes y el saldo de
   // la dosificadora, igual que la fórmula `I59` del Excel y que la pantalla de
@@ -2296,15 +2852,16 @@ function totalesDia(dia) {
   // se muestra "—" en vez de hundir la gráfica hasta cero.
   const div = (a, b) => b > 1e-6 ? a / b : null;
   return {
-    prog, producido, repro, bloques, lbPera, lbSed, lbJennos, progBloques, progPera,
+    prog, producido, repro, bloques, lbPera, lbSed, lbJennos, lbSemiblando,
+    progBloques, progPera,
     efecBloques, efecPera, uPeraReal, uPeraProg,
-    bloquesReal, lbPeraNeta, cantinasSed,
+    bloquesReal, lbPeraNeta, cantinasSed, cantinasSemiblando,
     librasMantequilla: num(dia.libras_mantequilla),
-    cantinasProcesadas: num(dia.cantinas_procesadas),
+    cantinasProcesadas: C.procesadas,
     cantinasDcMz, cantinasPera, cantinasJennos, litrosCrema, litrosBatidos,
     cantinasDescremadas: num(dia.cantinas_descremadas),
     rendCrema:      div(litrosCrema, num(dia.cantinas_descremadas)),
-    pctDescremado:  div(num(dia.cantinas_descremadas), num(dia.cantinas_procesadas)),
+    pctDescremado:  div(num(dia.cantinas_descremadas), C.procesadas),
     sinRepro: producido - repro,
     // Los TRES cumplimientos del Excel, cada uno con su propia unidad:
     //   bloques → libras cortadas (realizadas + fundidas) / libras programadas  (J36)
@@ -2319,6 +2876,11 @@ function totalesDia(dia) {
     promGlobal:   div(litrosCrema + bloquesReal - repro, cantinasDcMz),
     promSed:      div(lbSed - repro, cantinasSed),
     promJennos:   div(lbJennos, cantinasJennos),
+    // J49 del Excel: REND. S.BLANDO = J16 / H49
+    promSemiblando: div(lbSemiblando, cantinasSemiblando),
+    // PROMEDIOS!J132: (libras SED − reproceso + libras semiblando)
+    //                 ÷ (cantinas SED + cantinas semiblando)
+    promSedSemi:  div(lbSed - repro + lbSemiblando, cantinasSed + cantinasSemiblando),
     promPera:     div(lbPeraNeta, cantinasPera),
     rendMantequilla: div(num(dia.libras_mantequilla), litrosBatidos)
   };
@@ -2383,8 +2945,8 @@ function agruparDias(lista, modo) {
 // Promediar promedios diarios daría otro número; el Excel divide totales
 // entre totales (hoja PROMEDIOS, G3 = D3/B3), y así queda igual.
 const SUMABLES = ['prog','producido','repro','bloques','bloquesReal','lbPera','lbPeraNeta',
-  'lbSed','lbJennos','progBloques','progPera','efecBloques','efecPera','uPeraReal','uPeraProg',
-  'cantinasProcesadas','cantinasDcMz','cantinasPera','cantinasJennos','cantinasSed',
+  'lbSed','lbJennos','lbSemiblando','progBloques','progPera','efecBloques','efecPera','uPeraReal','uPeraProg',
+  'cantinasProcesadas','cantinasDcMz','cantinasPera','cantinasJennos','cantinasSemiblando','cantinasSed',
   'cantinasDescremadas','litrosCrema','litrosBatidos','librasMantequilla'];
 
 function totalesDe(dias) {
@@ -2400,6 +2962,9 @@ function totalesDe(dias) {
   r.promGlobal   = div(r.litrosCrema + r.bloquesReal - r.repro, r.cantinasDcMz);
   r.promSed      = div(r.lbSed - r.repro, r.cantinasSed);
   r.promJennos   = div(r.lbJennos, r.cantinasJennos);
+  r.promSemiblando = div(r.lbSemiblando, r.cantinasSemiblando);
+  r.promSedSemi  = div(r.lbSed - r.repro + r.lbSemiblando,
+                       r.cantinasSed + r.cantinasSemiblando);
   r.promPera     = div(r.lbPeraNeta, r.cantinasPera);
   r.rendMantequilla = div(r.librasMantequilla, r.litrosBatidos);
   r.rendCrema       = div(r.litrosCrema, r.cantinasDescremadas);
@@ -2497,7 +3062,7 @@ function aplicarFiltroProductos() {
 // pocos segundos; si se cierra la página o falla el guardado, al volver al
 // mismo día se ofrece recuperarlo. Vive solo en ese computador.
 const CLAVE_BORRADOR = 'peniel_honda_borrador_v1';
-const CLASES_PROD = ['c-real', 'c-fund', 'd-suave', 'd-peso', 'd-pres', 'd-cont'];
+const CLASES_PROD = ['c-real', 'c-fund', ...CAUSAS_NC.map(c => c.cls)];
 let tempBorrador = 0;
 
 function leerFormularioDia() {
@@ -2872,6 +3437,18 @@ function espejarScrollTodos(selector) {
 window.addEventListener('resize', () => espejarScrollTodos('.view.active .table-wrap'));
 
 // ── Historial ────────────────────────────────────────────────────────────
+// El correo completo no cabe en la tabla; se muestra lo de antes de la arroba
+// y el correo entero queda en el `title` de la celda.
+const usuarioCorto = correo => {
+  const c = String(correo || '').trim();
+  return c ? c.split('@')[0] : '—';
+};
+// "2026-10-21 17:14:13" → "21/10 17:14"
+const fmtMomento = v => {
+  const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : '—';
+};
+
 function renderHistorialHonda() {
   const orden = diasFiltrados('h').slice().reverse();
   const vacio = document.getElementById('historial-vacio');
@@ -2885,6 +3462,7 @@ function renderHistorialHonda() {
         <td><span class="chev">▸</span></td>
         <td>${fmtFecha(d.fecha)}</td>
         <td><span class="badge est-${esc(d.estado || 'PROGRAMADO')}">${esc(d.estado || '—')}</span></td>
+        <td title="${esc(d.creado_por || '')}">${esc(usuarioCorto(d.creado_por))}</td>
         <td class="mono">${t.progBloques ? lb1(t.progBloques) : '—'}</td>
         <td class="mono">${t.bloques ? lb1(t.bloques) : '—'}</td>
         <td class="mono">${t.cumpl != null ? (t.cumpl * 100).toFixed(1) + ' %' : '—'}</td>
@@ -2895,6 +3473,7 @@ function renderHistorialHonda() {
         <td class="mono col-pera">${t.cumplPera != null ? (t.cumplPera * 100).toFixed(1) + ' %' : '—'}</td>
         <td class="mono">${t.cantinasProcesadas ? ent(t.cantinasProcesadas * LITROS_POR_CANTINA) : '—'}</td>
         <td class="mono">${t.promSinCrema != null ? lb1(t.promSinCrema) : '—'}</td>
+        <td class="text-muted" style="font-size:11px">${esc(fmtMomento(d.ultima_edicion))}</td>
         <td onclick="event.stopPropagation()">
           <div class="acciones-fila">
             <button class="btn btn-sm" onclick="abrirDia('${esc(d.fecha)}')">Ver</button>
@@ -2906,7 +3485,7 @@ function renderHistorialHonda() {
           </div>
         </td>
       </tr>
-      <tr class="fila-detalle" id="det-${esc(d.id_dia)}" style="display:none"><td colspan="14"></td></tr>`;
+      <tr class="fila-detalle" id="det-${esc(d.id_dia)}" style="display:none"><td colspan="16"></td></tr>`;
   }).join('');
   espejarScrollTodos('#view-historial .table-wrap');
 }
@@ -2924,9 +3503,9 @@ function alternarDetalleDia(id, tr) {
     <div class="detalle-box">
       <table class="data-table">
         <thead><tr><th>Producto</th><th>Program.</th><th>Realizado</th><th>Fundido</th>
-          <th>Devoluciones</th><th>Efectivas</th><th>Libras</th></tr></thead>
+          <th>No conforme</th><th>Efectivas</th><th>Libras</th></tr></thead>
         <tbody>${filas.map(f => {
-          const dev = num(f.dev_suave) + num(f.dev_bajo_peso) + num(f.dev_presentacion) + num(f.dev_contaminacion);
+          const dev = sumaNoConformes(f);
           const cant = num(f.cant_realizada) + num(f.cant_fundida);
           return `<tr>
             <td>${esc(nombreDe(f.id_producto))}</td>
@@ -3049,6 +3628,8 @@ async function renderDashboardHonda() {
     ['Promedio global', ...prom(T.promGlobal)],
     ['Promedio sin crema', ...prom(T.promSinCrema)],
     ['Promedio SED', ...prom(T.promSed)],
+    ['Promedio semiblando', ...prom(T.promSemiblando)],
+    ['Promedio SED + semiblando', ...prom(T.promSedSemi)],
     ['Promedio Jennos', ...prom(T.promJennos)]
   ]);
 
@@ -3086,7 +3667,8 @@ async function renderDashboardHonda() {
   const etiquetas = grupos.map(g => g.etiqueta);
   const t = grupos.map(g => totalesDe(g.dias));
   const AZUL = '#3d6c94', VERDE = '#5b9279', AMARILLO = '#c9a227',
-        ROJO = '#c2544d', MORADO = '#b8860b', GRIS = '#9aa7b4';   // "MORADO" quedó
+        ROJO = '#c2544d', MORADO = '#b8860b', GRIS = '#9aa7b4',
+        MORADO_REAL = '#7a52a1';   // este sí es morado, para el semiblando   // "MORADO" quedó
         // con el nombre viejo: hoy es el amarillo quemado del queso pera
   // Una función, no un objeto: Chart.js escribe dentro de las opciones que
   // recibe, y compartir el mismo objeto entre gráficas las contamina.
@@ -3104,6 +3686,10 @@ async function renderDashboardHonda() {
 
   pinta('g-promedios', { type: 'line', data: { labels: etiquetas, datasets: [
     linea('Promedio SED', serie(x => x.promSed), ROJO),
+    // El semiblando va en morado y el SED+semiblando en verde: el ocre que
+    // tenía antes se confundía con el amarillo del Jennos.
+    linea('Promedio semiblando', serie(x => x.promSemiblando), MORADO_REAL),
+    linea('Promedio SED + semiblando', serie(x => x.promSedSemi), VERDE),
     linea('Promedio Jennos', serie(x => x.promJennos), AMARILLO),
     linea('Promedio sin crema', serie(x => x.promSinCrema), AZUL)
   ]}, options: ejes() });
